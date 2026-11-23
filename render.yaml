@@ -1,0 +1,46 @@
+# Render Blueprint — АгроПост.
+# Связка: agropost-web (Static Site, не спит) + agropost-api (Web Service, free tier).
+# База — Neon (не Render Postgres: free-вариант удаляет данные через 30 дней).
+# Порядок деплоя см. в README.md (раздел «Деплой»).
+
+services:
+  - type: static
+    name: agropost-web
+    rootDir: apps/web
+    buildCommand: npm install --include=dev && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Адрес API вшивается в статику на сборке (apps/web/src/api/client.ts)
+      - key: VITE_API_URL
+        value: https://agropost-api.onrender.com/api
+
+  - type: web
+    name: agropost-api
+    runtime: node
+    plan: free
+    rootDir: apps/server
+    buildCommand: npm install --include=dev && npm run build
+    # Миграции применяются при каждом деплое (идемпотентно), затем старт
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENROUTER_KEY
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        value: agropost-media
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

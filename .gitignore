@@ -1,0 +1,21 @@
+# Зависимости и сборка
+node_modules/
+dist/
+*.local
+
+# Секреты — никогда не коммитим
+.env
+.env.*
+!.env.example
+
+# Системное
+.DS_Store
+*.log
+
+# Python-парсер
+__pycache__/
+*.pyc
+.venv/
+
+# PWA-кеш разработки
+apps/web/dev-dist/

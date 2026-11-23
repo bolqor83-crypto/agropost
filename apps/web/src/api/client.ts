@@ -1,0 +1,167 @@
+/**
+ * Типизированный клиент API АгроПост.
+ *
+ * База:
+ * - Vite (apps/web): VITE_API_URL при сборке, иначе относительный /api —
+ *   его проксирует vite-dev-server на localhost:3001 (см. vite.config.ts);
+ * - Next-превью: мок-API на тех же маршрутах (same-origin /api);
+ * - статика на Render: VITE_API_URL=https://agropost-api.onrender.com/api.
+ *
+ * Ошибки сервера имеют единый формат { error: { code, message } } —
+ * клиент превращает их в ApiError с человеческим сообщением.
+ */
+
+import type {
+  CultureTemplateDTO,
+  MediaUploadDTO,
+  PositionDTO,
+  PositionInput,
+  PositionStatus,
+  CultureType,
+  SupplierDTO,
+  SupplierInput,
+  UserDTO,
+} from "@shared/types";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function resolveApiBase(): string {
+  /* Vite: переменные сборки; в Next import.meta.env просто undefined */
+  const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  if (viteEnv && viteEnv.VITE_API_URL) return viteEnv.VITE_API_URL;
+  /* Next-превью (встроивается на сборке) */
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  return "/api";
+}
+
+const BASE = resolveApiBase();
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...init?.headers },
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK", "Сервер недоступен — проверьте, запущен ли API");
+  }
+  const text = await res.text();
+  const body = text ? (JSON.parse(text) as unknown) : null;
+  if (!res.ok) {
+    const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
+    throw new ApiError(res.status, err?.code ?? "UNKNOWN", err?.message ?? `Ошибка ${res.status}`);
+  }
+  return body as T;
+}
+
+/* ---------- Поставщики ---------- */
+
+export function listSuppliers(): Promise<SupplierDTO[]> {
+  return request<SupplierDTO[]>("/suppliers");
+}
+
+export function createSupplier(input: SupplierInput): Promise<SupplierDTO> {
+  return request<SupplierDTO>("/suppliers", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateSupplier(id: string, patch: Partial<SupplierInput>): Promise<SupplierDTO> {
+  return request<SupplierDTO>(`/suppliers/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteSupplier(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/suppliers/${id}`, { method: "DELETE" });
+}
+
+/* ---------- Шаблоны культур ---------- */
+
+export function listCultures(): Promise<CultureTemplateDTO[]> {
+  return request<CultureTemplateDTO[]>("/cultures");
+}
+
+/* ---------- Позиции ---------- */
+
+export interface PositionFilters {
+  type?: CultureType;
+  cultureId?: string;
+  supplierId?: string;
+  status?: PositionStatus;
+  q?: string;
+}
+
+export function listPositions(filters: PositionFilters = {}): Promise<PositionDTO[]> {
+  const params = new URLSearchParams();
+  if (filters.type) params.set("type", filters.type);
+  if (filters.cultureId) params.set("cultureId", filters.cultureId);
+  if (filters.supplierId) params.set("supplierId", filters.supplierId);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.q) params.set("q", filters.q);
+  const qs = params.toString();
+  return request<PositionDTO[]>(`/positions${qs ? `?${qs}` : ""}`);
+}
+
+export function createPosition(input: PositionInput): Promise<PositionDTO> {
+  return request<PositionDTO>("/positions", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updatePosition(
+  id: string,
+  patch: Partial<PositionInput>,
+): Promise<PositionDTO> {
+  return request<PositionDTO>(`/positions/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deletePosition(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/positions/${id}`, { method: "DELETE" });
+}
+
+/* ---------- Медиа (presigned R2) ---------- */
+
+export function requestMediaUpload(
+  positionId: string,
+  input: { type: "PHOTO" | "VIDEO"; contentType: string; watermark?: boolean },
+): Promise<MediaUploadDTO> {
+  return request<MediaUploadDTO>(`/positions/${positionId}/media`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Прямая загрузка файла в R2 по presigned-ссылке. */
+export async function putFile(uploadUrl: string, file: File, headers: Record<string, string>) {
+  const res = await fetch(uploadUrl, { method: "PUT", headers, body: file });
+  if (!res.ok) throw new ApiError(res.status, "UPLOAD_FAILED", "Не удалось загрузить файл");
+}
+
+export function deleteMedia(positionId: string, mediaId: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/positions/${positionId}/media/${mediaId}`, {
+    method: "DELETE",
+  });
+}
+
+/* ---------- Пользователь и мета ---------- */
+
+export function getUser(): Promise<UserDTO | null> {
+  return request<UserDTO | null>("/user");
+}
+
+export function getMeta(): Promise<{
+  ok: boolean;
+  name: string;
+  version: string;
+  stage: number;
+  stages: Record<string, boolean>;
+}> {
+  return request("/meta");
+}
