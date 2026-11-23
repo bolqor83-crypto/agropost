@@ -1,6 +1,25 @@
 # Отчёт по этапу 1 — Поставщики, шаблоны культур, позиции
 
-Дата: 2026-11-24 · Версия: 0.2.0 · Статус: **готов, проверено**
+Дата: 2026-11-24 · Версия: 0.2.0 · Статус: **готов, проверено, задеплоено**
+
+## Живые ссылки (прод)
+
+| Что | URL |
+|---|---|
+| Веб-приложение (PWA) | https://agropost-web.onrender.com |
+| API | https://agropost-api.onrender.com/api/health |
+| База | Neon, проект `agropost` (org `bolqor`), ветка main |
+| Репозиторий | https://github.com/bolqor83-crypto/agropost |
+
+Деплой: push в `main` → Render собирает оба сервиса автоматически
+(`autoDeploy` включён; при старте API применяет `prisma migrate deploy`).
+Free-tier: API засыпает через ~15 минут бездействия, первый запрос ~30 сек.
+Загрузка медиа заработает после добавления ключей R2 (env `agropost-api`).
+
+> Примечание: репозиторий публичный, чтобы Render тянул код без настройки
+> GitHub App (как bazar-deploy/agromoll-public). Чтобы закрыть: переведите
+> репо в private и добавьте его в доступ приложения Render
+> (GitHub → Settings → Applications → Render → Repository access).
 
 ## Что сделано
 
