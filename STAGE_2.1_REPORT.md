@@ -140,19 +140,26 @@ prerender «/»: `useLocation() may be used only in the context of a
 ## Живые ссылки
 
 - Веб: https://agropost-web.onrender.com
-- API: https://agropost-api.onrender.com (`/api/health`, `/api/meta` —
-  версия 0.3.1, stage 2)
-- Прод-проверки после деплоя: 14 каналов, ротация в suggest-channels
-  (recommendedCity = Таганрог), health stage 2 — см. ниже «Деплой».
+- API: https://agropost-api.onrender.com (`/api/health`, `/api/meta`)
+- Репо: GitHub `bolqor83-crypto/agropost`, ветка `main` (HEAD — `faae7df`).
 
-## Деплой
+## Деплой (выполнено)
 
-- Пуш в `main` (GitHub) + ручной триггер деплоя обоих сервисов Render API
-  (autoDeploy не срабатывает на пуш — известная особенность аккаунта).
-- Прод-БД = Neon, схема (`city`, `publishedCount`) и сид (14 каналов,
-  демо-история) применены из песочницы ДО деплоя — сервисы стартуют
-  с готовой схемой.
-- Статус деплоя и live-проверки: см. финальный коммит/раздел «Проверки».
+- Пуш в `main`: `fa848e0..faae7df` (история этапа 2 сохранена; локальный `.git`
+  утерян при переработке песочницы — восстановлен из GitHub).
+- Ручной триггер деплоя Render API (autoDeploy на пуш не срабатывает — известная
+  особенность аккаунта): `agropost-api` — `dep-dc2jttp7lnhs73empukg`,
+  `agropost-web` — `dep-dc2jtu4s728c73aqq7c0`, **оба live**.
+- Прод-БД = Neon: схема (`city`, `publishedCount`) и сид (14 каналов,
+  демо-история ротации) применены из песочницы ДО деплоя.
+- Прод-проверки (live URL):
+  - `GET /api/meta` → 0.3.1 / stage 2 / channels: true; `GET /api/health` → ok, stage 2;
+  - `GET /api/channels` → 14 каналов, 5 с городом;
+  - `POST /api/positions/:id/suggest-channels` (SEED-позиция) → rotation
+    с городами Таганрог/Шахты/Ростов-на-Дону/Новочеркасск,
+    `recommendedCity` = Таганрог, Ростов-на-Дону в cooldown (ждать 1 дн),
+    у каждого канала — `cooldown`/`daysSince`;
+  - веб — HTTP 200.
 
 ## Дальше
 
