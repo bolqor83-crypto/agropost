@@ -718,3 +718,136 @@ export interface DeliveryCalculateDTO {
     note: string;
   };
 }
+
+/* ---------- Этап 5: аналитика ---------- */
+
+/** Период аналитики (query param ?period=). */
+export type AnalyticsPeriod = "week" | "month" | "all";
+
+/** Топ-культура по марже в сводке. */
+export interface AnalyticsTopCulture {
+  name: string;
+  /** Сумма маржи по закрытым сделкам, ₽. */
+  margin: number;
+  dealsCount: number;
+}
+
+/** Топ-канал по лидам в сводке. */
+export interface AnalyticsTopChannel {
+  name: string;
+  /** Лиды, пришедшие с позиций, публиковавшихся в канале (последняя публикация). */
+  leads: number;
+  deals: number;
+}
+
+/** GET /api/analytics/summary?period=week|month|all. */
+export interface AnalyticsSummaryDTO {
+  ok: true;
+  period: AnalyticsPeriod;
+  /** Выручка по закрытым (CLOSED) сделкам за период, ₽. */
+  revenue: number;
+  /** Маржа по закрытым сделкам за период, ₽. */
+  margin: number;
+  /** Сделок за период: всего (включая отменённые). */
+  dealsTotal: number;
+  /** Закрытых (CLOSED) сделок за период. */
+  dealsClosed: number;
+  /** Активных (DRAFT..DELIVERED) сделок за период. */
+  dealsActive: number;
+  /** Средний чек закрытых сделок, ₽ (null — закрытых нет). */
+  averageCheck: number | null;
+  topCultures: AnalyticsTopCulture[];
+  topChannels: AnalyticsTopChannel[];
+  /** Лидов за период (все статусы). */
+  leadsTotal: number;
+  /** Лидов, ставших сделками (сделки с leadId за период). */
+  leadsConverted: number;
+  /** Конверсия лид → сделка, % (null — лидов нет). */
+  conversion: number | null;
+  /** Новых лидов за сегодня. */
+  newLeadsToday: number;
+  /** true — закрытых сделок < 3: аналитика ещё «сырая». */
+  lowData: boolean;
+}
+
+/** Строка вкладки «Каналы»: канал с метриками. */
+export interface AnalyticsChannelRow {
+  id: string;
+  name: string;
+  type: ChannelType;
+  region: string;
+  city: string | null;
+  /** averageReach ?? subscribersCount. */
+  reach: number | null;
+  /** Размещений (Listing) всего. */
+  listings: number;
+  /** Сколько раз публиковали (сумма publishedCount). */
+  publications: number;
+  /** Лиды по позициям, публиковавшимся в канале (аттрибуция по последней публикации). */
+  leads: number;
+  /** Сделок из этих лидов. */
+  deals: number;
+  /** Конверсия лид → сделка, % (null — лидов нет). */
+  conversion: number | null;
+  /** Средняя маржа сделок по лидам канала (null — сделок нет). */
+  avgMargin: number | null;
+  lastPublishedAt: string | null;
+  /** Дней с последней публикации (null — не публиковали). */
+  daysSincePublication: number | null;
+}
+
+/** GET /api/analytics/channels?sort=margin|leads. */
+export interface AnalyticsChannelsDTO {
+  ok: true;
+  items: AnalyticsChannelRow[];
+}
+
+/** Строка вкладки «Позиции»: позиция с метриками. */
+export interface AnalyticsPositionRow {
+  id: string;
+  /** Название позиции (культура + ключевые атрибуты). */
+  title: string;
+  cultureName: string;
+  /** Остаток, кг. */
+  volumeKg: number;
+  status: PositionStatus;
+  /** Сделок всего за всё время. */
+  dealsCount: number;
+  /** Выручка закрытых сделок, ₽. */
+  revenue: number;
+  /** Маржа закрытых сделок, ₽. */
+  margin: number;
+  /** Средняя цена продажи по сделкам, ₽/кг (null — сделок нет). */
+  avgSalePrice: number | null;
+  /** Дней с создания позиции. */
+  daysInStock: number;
+  /** Последняя публикация (null — не публиковали). */
+  lastPublishedAt: string | null;
+}
+
+/** GET /api/analytics/positions?sort=margin|stock. */
+export interface AnalyticsPositionsDTO {
+  ok: true;
+  items: AnalyticsPositionRow[];
+}
+
+/** Пункт чек-листа «Перед запуском». */
+export interface ReadinessItem {
+  id: string;
+  label: string;
+  done: boolean;
+  /** Подсказка, что нужно сделать. */
+  hint: string;
+  /** true — пункт не обязателен для старта (AI-ключ, R2). */
+  optional?: boolean;
+}
+
+/** GET /api/analytics/readiness — чек-лист «Перед запуском». */
+export interface ReadinessDTO {
+  ok: true;
+  items: ReadinessItem[];
+  /** Сколько пунктов готово. */
+  ready: number;
+  /** Всего пунктов. */
+  total: number;
+}

@@ -53,6 +53,25 @@ body {
   to { opacity: 1; }
 }
 
+/* ============================================================
+   Тёмная тема (этап 5): переключатель в «Ещё» → Настройки.
+   Токены из ТЗ: canvas #1E1C1A, surface #2A2724, text #F5F2ED,
+   accent #6FB890. Класс вешается на <html> в lib/theme.ts.
+   ============================================================ */
+html.dark {
+  --color-canvas: #1E1C1A;
+  --color-surface: #2A2724;
+  --color-subtle: #35312D;
+  --color-ink: #F5F2ED;
+  --color-soft: #A29C94;
+  --color-accent: #6FB890;
+  --color-accent-soft: #2E3B34;
+  --color-warm: #E2A173;
+  --color-warm-soft: #3A2E24;
+  --color-line: #3B3733;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 .screen-rise { animation: rise 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .sheet-in { animation: sheet-in 0.26s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fade-in { animation: fade-in 0.2s ease both; }

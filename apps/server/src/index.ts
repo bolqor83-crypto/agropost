@@ -19,6 +19,7 @@ import { telegramWebhookRoutes } from "./routes/telegramWebhook.js";
 import { dealsRoutes } from "./routes/deals.js";
 import { claimsRoutes } from "./routes/claims.js";
 import { carrierRoutes } from "./routes/carriers.js";
+import { analyticsRoutes } from "./routes/analytics.js";
 import { getTelegram, setupWebhookAtStartup } from "./telegram/index.js";
 import { registerErrorHandler } from "./errors.js";
 
@@ -32,6 +33,8 @@ import { registerErrorHandler } from "./errors.js";
  * автопостинг в свои каналы через бота.
  * Этап 4: сделки, калькулятор доставки, PDF-документы (pdfmake),
  * рекламации, справочник ТК, реквизиты профиля.
+ * Этап 5: аналитика (сводка/каналы/позиции по запросу), расширенный
+ * контекст советника, чек-лист «Перед запуском».
  *
  * Все ошибки — единый формат { error: { code, message } }.
  * Стек: tsx в рантайме (shared/ лежит вне apps/server, emit не нужен).
@@ -65,6 +68,7 @@ await app.register(telegramRoutes);
 await app.register(dealsRoutes);
 await app.register(claimsRoutes);
 await app.register(carrierRoutes);
+await app.register(analyticsRoutes);
 
 /* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
 const telegram = getTelegram();

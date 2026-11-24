@@ -48,6 +48,7 @@ function assertLinkAllowed(link: string, expectObj: Record<string, unknown>): vo
     "/channels",
     "/deals",
     "/suppliers",
+    "/inbox",
   ];
   expect(allowed.some((base) => link === base || link.startsWith(`${base}?`) || link.startsWith(`${base}/`))).toBe(true);
 }
@@ -108,6 +109,8 @@ describe("golden set (реальный GLM)", () => {
         statuses[goldenCase.id] = result.meta.status;
 
         expect(result.data.actions.length).toBeLessThanOrEqual((expectObj["actionsMax"] as number) ?? 3);
+        const actionsMin = (expectObj["actionsMin"] as number | undefined) ?? 0;
+        expect(result.data.actions.length).toBeGreaterThanOrEqual(actionsMin);
         for (const action of result.data.actions) {
           assertLinkAllowed(action.link, expectObj);
           expect(action.action.length).toBeGreaterThan(0);

@@ -14,6 +14,10 @@
 import type {
   AccountDTO,
   AccountInput,
+  AnalyticsChannelsDTO,
+  AnalyticsPeriod,
+  AnalyticsPositionsDTO,
+  AnalyticsSummaryDTO,
   CarrierDTO,
   CarrierInput,
   ChannelDTO,
@@ -49,6 +53,7 @@ import type {
   PositionDTO,
   PositionInput,
   PositionStatus,
+  ReadinessDTO,
   CultureType,
   SuggestChannelsDTO,
   SupplierDTO,
@@ -565,6 +570,32 @@ export function createClaim(input: ClaimCreateInput): Promise<ClaimDTO> {
 
 export function updateClaim(id: string, patch: ClaimUpdateInput): Promise<ClaimDTO> {
   return request<ClaimDTO>(`/claims/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+/* ---------- Этап 5: аналитика ---------- */
+
+/** Сводка за период: выручка, маржа, конверсия, топы. */
+export function getAnalyticsSummary(period: AnalyticsPeriod): Promise<AnalyticsSummaryDTO> {
+  return request<AnalyticsSummaryDTO>(`/analytics/summary?period=${period}`);
+}
+
+/** Каналы с метриками: ?sort=margin|leads. */
+export function getAnalyticsChannels(
+  sort: "margin" | "leads" = "margin",
+): Promise<AnalyticsChannelsDTO> {
+  return request<AnalyticsChannelsDTO>(`/analytics/channels?sort=${sort}`);
+}
+
+/** Позиции с метриками: ?sort=margin|stock. */
+export function getAnalyticsPositions(
+  sort: "margin" | "stock" = "margin",
+): Promise<AnalyticsPositionsDTO> {
+  return request<AnalyticsPositionsDTO>(`/analytics/positions?sort=${sort}`);
+}
+
+/** Чек-лист «Перед запуском». */
+export function getReadiness(): Promise<ReadinessDTO> {
+  return request<ReadinessDTO>("/analytics/readiness");
 }
 
 /* Реквизиты профиля */

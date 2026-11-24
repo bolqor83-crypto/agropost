@@ -67,6 +67,25 @@ const adviceChannelSchema = z.object({
   daysSince: z.number().int().min(0).nullable().optional(),
 });
 
+/* Этап 5: лиды инбокса и сделки для расширенного контекста. */
+const adviceInboxLeadSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().max(120).nullable().optional(),
+  interest: z.string().trim().max(200).nullable().optional(),
+  status: z.enum(["NEW", "IN_PROGRESS", "ANSWERED", "CLOSED", "SPAM"]),
+  days: z.number().int().min(0),
+  answered: z.boolean(),
+});
+
+const adviceDealSchema = z.object({
+  id: z.string().optional(),
+  number: z.string().trim().min(1).max(32),
+  buyerName: z.string().trim().min(1).max(120),
+  status: z.string().trim().min(1).max(40),
+  amount: z.number().min(0),
+  days: z.number().int().min(0),
+});
+
 export const aiAdviceContextSchema = z
   .object({
     activeLeads: z.array(adviceLeadSchema).max(10),
@@ -74,6 +93,14 @@ export const aiAdviceContextSchema = z
     staleListings: z.array(adviceListingSchema).max(10),
     positionsInStock: z.array(advicePositionSchema).max(10),
     cooledDownChannels: z.array(adviceChannelSchema).max(10),
+    /* Этап 5 (часть B): расширенный контекст — все поля опциональны. */
+    inboxLeads: z.array(adviceInboxLeadSchema).max(20).optional(),
+    activeDeals: z.array(adviceDealSchema).max(20).optional(),
+    staleDeals: z.array(adviceDealSchema).max(20).optional(),
+    unpublishedPositions: z.array(advicePositionSchema).max(10).optional(),
+    channelsInCooldown: z.array(adviceChannelSchema).max(10).optional(),
+    staleChannels: z.array(adviceChannelSchema).max(10).optional(),
+    newLeadsToday: z.number().int().min(0).optional(),
   })
   .strict();
 

@@ -103,8 +103,67 @@ export function fallbackReply(p: PositionDTO, incoming: string): AiReplyData {
 
 /* ---------- 3. Advice ---------- */
 
+/** Лид завис: старше 3 дней и ответа не было (этап 5, часть B). */
+const STALE_LEAD_DAYS = 3;
+
+function leadWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "лиду";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "лидам";
+  return "лидам";
+}
+
+function dealWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "сделке";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "сделкам";
+  return "сделкам";
+}
+
 export function fallbackAdvice(ctx: AiAdviceContext): AiAdviceData {
   const actions: AiAdviceData["actions"] = [];
+
+  /* Этап 5, часть B: зависшие лиды — деньги ждут ответа. */
+  const staleInboxLeads = (ctx.inboxLeads ?? []).filter(
+    (l) => !l.answered && l.days > STALE_LEAD_DAYS,
+  );
+  if (staleInboxLeads.length > 0) {
+    const n = staleInboxLeads.length;
+    actions.push({
+      priority: "high",
+      action: `Ответить ${leadWord(n)} (${n})`,
+      reason: `${n} ${n === 1 ? "покупатель ждёт" : "покупателей ждут"} ответа больше 3 дней — без ответа вопрос остывает.`,
+      link: "/inbox",
+    });
+  } else {
+    /* Несвежие, но ещё не зависшие: сегодняшние лиды без ответа. */
+    const unansweredToday = (ctx.inboxLeads ?? []).filter((l) => !l.answered);
+    if (unansweredToday.length > 0) {
+      const n = unansweredToday.length;
+      actions.push({
+        priority: "high",
+        action: `Ответить ${leadWord(n)} (${n})`,
+        reason: `В инбоксе ${n} ${n === 1 ? "вопрос без ответа" : "вопросов без ответа"} — свежие лиды отвечают охотнее.`,
+        link: "/inbox",
+      });
+    }
+  }
+
+  /* Зависшие сделки: ждут оплаты больше 2 дней — напомнить. */
+  if ((ctx.staleDeals ?? []).length > 0) {
+    const n = (ctx.staleDeals ?? []).length;
+    const amount = Math.round(
+      (ctx.staleDeals ?? []).reduce((sum, d) => sum + d.amount, 0),
+    );
+    actions.push({
+      priority: "high",
+      action: `Напомнить об оплате ${dealWord(n)} (${n})`,
+      reason: `${n} ${n === 1 ? "сделка висит" : "сделки висят"} в «Ожидает оплаты» больше 2 дней — ${amount} ₽ ещё не получены.`,
+      link: "/deals",
+    });
+  }
 
   if (ctx.staleListings.length > 0) {
     const n = ctx.staleListings.length;
@@ -116,10 +175,21 @@ export function fallbackAdvice(ctx: AiAdviceContext): AiAdviceData {
     });
   }
 
+  /* Позиции в наличии, по которым нет публикаций > 14 дней. */
+  if ((ctx.unpublishedPositions ?? []).length > 0) {
+    const n = (ctx.unpublishedPositions ?? []).length;
+    actions.push({
+      priority: "medium",
+      action: `Опубликовать позиции (${n})`,
+      reason: `${n} ${n === 1 ? "позиция в наличии" : "позиции в наличии"}, но объявлений по ним не было больше 2 недель.`,
+      link: "/publish",
+    });
+  }
+
   if (ctx.activeLeads.length > 0) {
     const n = ctx.activeLeads.length;
     actions.push({
-      priority: "high",
+      priority: "medium",
       action: `Проверить активные размещения (${n})`,
       reason: "Есть размещения в статусе «скопировано» — возможно, текст уже опубликован, но отметка не стоит.",
       link: "/publish",
@@ -136,7 +206,32 @@ export function fallbackAdvice(ctx: AiAdviceContext): AiAdviceData {
     });
   }
 
-  if (actions.length < 3 && ctx.cooledDownChannels.length > 0) {
+  if (actions.length < 3 && (ctx.staleChannels ?? []).length > 0) {
+    actions.push({
+      priority: "medium",
+      action: `Опубликовать в отдохнувших каналах (${(ctx.staleChannels ?? []).length})`,
+      reason: "Каналы не получали объявления больше 2 недель — охват падает.",
+      link: "/channels",
+    });
+  }
+
+  if (actions.length < 3 && (ctx.channelsInCooldown ?? []).length > 0) {
+    actions.push({
+      priority: "medium",
+      action: `Освежить каналы (${(ctx.channelsInCooldown ?? []).length})`,
+      reason: "Cooldown закончился — сегодня можно опубликовать в этих каналах.",
+      link: "/channels",
+    });
+  }
+
+  /* Старое правило «каналы без публикаций»: в расширенном контексте
+     оно поглощается channelsInCooldown (никогда не публиковали =
+     доступны сегодня) — оставляем только для legacy-контекста. */
+  if (
+    actions.length < 3 &&
+    ctx.channelsInCooldown === undefined &&
+    ctx.cooledDownChannels.length > 0
+  ) {
     actions.push({
       priority: "medium",
       action: `Освежить каналы без публикаций (${ctx.cooledDownChannels.length})`,

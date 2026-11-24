@@ -6,13 +6,14 @@
  */
 
 import { useEffect, useState } from "react";
-import { Save, ShieldCheck } from "lucide-react";
+import { Moon, Save, ShieldCheck } from "lucide-react";
 import { DEAL_TAX_MODE_LABEL } from "@shared/labels";
 import { dealTaxModeToProfile } from "@shared/pricing";
 import type { DealTaxMode, UserProfileDTO } from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
-import { Btn, Card, Chip, Field, ScreenHeader, Select, Skeleton, TextInput } from "../components/ui";
+import { loadTheme, setTheme, type Theme } from "../lib/theme";
+import { Btn, Card, Chip, Field, ScreenHeader, Select, Skeleton, TextInput, ToggleRow } from "../components/ui";
 
 const TAX_MODES: DealTaxMode[] = ["IP_6", "SELF_EMPLOYED_4", "SELF_EMPLOYED_6"];
 
@@ -30,6 +31,17 @@ export function ProfileScreen() {
   const [bik, setBik] = useState("");
   const [account, setAccount] = useState("");
   const [taxMode, setTaxMode] = useState<DealTaxMode>("IP_6");
+  const [theme, setThemeState] = useState<Theme>("light");
+
+  useEffect(() => {
+    setThemeState(loadTheme());
+  }, []);
+
+  const toggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setThemeState(next);
+    setTheme(next);
+  };
 
   useEffect(() => {
     api
@@ -159,6 +171,24 @@ export function ProfileScreen() {
                     />
                   </Field>
                 </div>
+              </div>
+            </Card>
+
+            <Card className="mt-3 p-4">
+              <div className="flex items-center gap-2">
+                <Moon size={16} className="text-accent" />
+                <p className="text-[15px] font-semibold text-ink">Настройки вида</p>
+              </div>
+              <p className="mt-1 text-[12px] font-medium text-soft">
+                Тёмная тема — для вечером, глаза скажут спасибо
+              </p>
+              <div className="mt-3">
+                <ToggleRow
+                  checked={theme === "dark"}
+                  onToggle={toggleTheme}
+                  label="Тёмная тема"
+                  hint={theme === "dark" ? "Включена — фон #1E1C1A" : "Выключена — светлая, как в дизайне"}
+                />
               </div>
             </Card>
 

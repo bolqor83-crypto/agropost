@@ -176,6 +176,14 @@ export function DealsScreen() {
                   : "Создайте первую сделку из лида или позиции — экономика посчитается автоматически"
               }
             />
+            {!q && filter === "all" && (
+              <div className="px-5 pb-5">
+                <Btn full size="lg" onClick={() => setFormOpen(true)}>
+                  <Plus size={17} />
+                  Создать сделку
+                </Btn>
+              </div>
+            )}
           </Card>
         ) : (
           <div className="flex flex-col gap-3">

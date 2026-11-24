@@ -116,12 +116,52 @@ export interface AiAdviceChannel {
   daysSince?: number | null;
 }
 
+/* Этап 5: лиды инбокса для контекста «Совет». */
+export interface AiAdviceInboxLead {
+  id?: string;
+  name?: string | null;
+  /** Интерес из сообщения («люцерна 2 класс») или позиция. */
+  interest?: string | null;
+  status: "NEW" | "IN_PROGRESS" | "ANSWERED" | "CLOSED" | "SPAM";
+  /** Дней с создания. */
+  days: number;
+  /** Был ли хотя бы один исходящий ответ. */
+  answered: boolean;
+}
+
+/* Этап 5: сделки для контекста «Совет». */
+export interface AiAdviceDeal {
+  id?: string;
+  number: string;
+  buyerName: string;
+  status: "AWAITING_PAYMENT" | "PAID" | "SHIPPED" | string;
+  /** Сумма к оплате, ₽. */
+  amount: number;
+  /** Дней в текущем статусе (по createdAt сделки). */
+  days: number;
+}
+
 export interface AiAdviceContext {
   activeLeads: AiAdviceLead[];
   recentListings: AiAdviceListing[];
   staleListings: AiAdviceListing[];
   positionsInStock: AiAdvicePosition[];
   cooledDownChannels: AiAdviceChannel[];
+  /* ---------- Этап 5: расширенный контент ---------- */
+  /** Лиды инбокса: активные и зависшие (NEW/IN_PROGRESS, старше 3 дней без ответа). */
+  inboxLeads?: AiAdviceInboxLead[];
+  /** Активные сделки (AWAITING_PAYMENT, PAID, SHIPPED). */
+  activeDeals?: AiAdviceDeal[];
+  /** Сделки, зависшие в AWAITING_PAYMENT дольше 2 дней. */
+  staleDeals?: AiAdviceDeal[];
+  /** Позиции в наличии, по которым нет публикаций > 14 дней. */
+  unpublishedPositions?: AiAdvicePosition[];
+  /** Каналы, доступные к публикации сегодня (cooldown закончился или не начинался). */
+  channelsInCooldown?: AiAdviceChannel[];
+  /** Каналы без публикаций дольше 14 дней. */
+  staleChannels?: AiAdviceChannel[];
+  /** Новых лидов сегодня. */
+  newLeadsToday?: number;
 }
 
 export interface AiAdviceInput {

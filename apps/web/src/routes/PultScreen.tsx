@@ -4,12 +4,13 @@
  * Позиции — из API этапа 1; остатки обновляются вручную и молчат.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bean, ChevronRight, Handshake, Inbox, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
+import { Bean, ChevronRight, Handshake, Inbox, Send, ShieldCheck, Sparkles, Sprout, TrendingUp, Wheat } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
 import type { AiAdviceData, AiMeta } from "@shared/ai";
+import type { AnalyticsSummaryDTO } from "@shared/types";
 import * as api from "../api/client";
 import { useCatalog } from "../stores/catalog";
 import { useActivityStore } from "../stores/publish";
@@ -56,6 +57,82 @@ function PositionCard({ p, onOpen }: { p: PositionDTO; onOpen: () => void }) {
   );
 }
 
+/** Карточка-показатель аналитики (этап 5): клик → экран «Аналитика». */
+function StatCard({
+  icon,
+  label,
+  value,
+  hint,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Card onClick={onClick} className="min-w-0 flex-1 p-3.5">
+      <div className="flex items-center gap-1.5 text-soft">
+        {icon}
+        <p className="truncate text-[11px] font-semibold uppercase tracking-wide">{label}</p>
+      </div>
+      <p className="mt-1.5 truncate text-[17px] font-bold text-ink">{value}</p>
+      {hint && <p className="truncate text-[11px] font-medium text-soft">{hint}</p>}
+    </Card>
+  );
+}
+
+function AnalyticsCards({
+  summary,
+  loading,
+  activeDeals,
+  onOpen,
+}: {
+  summary: AnalyticsSummaryDTO | null;
+  loading: boolean;
+  activeDeals: number | null;
+  onOpen: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex gap-3">
+        <Skeleton className="h-[86px] flex-1 rounded-[20px]" />
+        <Skeleton className="h-[86px] flex-1 rounded-[20px]" />
+        <Skeleton className="h-[86px] flex-1 rounded-[20px]" />
+      </div>
+    );
+  }
+  const margin = summary ? fmtRub(summary.margin) : "—";
+  const marginHint =
+    summary && summary.dealsClosed > 0 ? `${summary.dealsClosed} закр. за неделю` : "после первых сделок";
+  return (
+    <div className="flex gap-3">
+      <StatCard
+        icon={<TrendingUp size={13} />}
+        label="Маржа · неделя"
+        value={margin}
+        hint={marginHint}
+        onClick={onOpen}
+      />
+      <StatCard
+        icon={<Handshake size={13} />}
+        label="Активные"
+        value={activeDeals !== null ? String(activeDeals) : "—"}
+        hint="сделок в работе"
+        onClick={onOpen}
+      />
+      <StatCard
+        icon={<Inbox size={13} />}
+        label="Лиды"
+        value={summary ? String(summary.newLeadsToday) : "—"}
+        hint="новых сегодня"
+        onClick={onOpen}
+      />
+    </div>
+  );
+}
+
 function channelsWord(n: number): string {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -97,6 +174,8 @@ export function PultScreen() {
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [newLeads, setNewLeads] = useState<number | null>(null);
   const [activeDeals, setActiveDeals] = useState<number | null>(null);
+  const [weekSummary, setWeekSummary] = useState<AnalyticsSummaryDTO | null>(null);
+  const [weekLoading, setWeekLoading] = useState(true);
   const [advice, setAdvice] = useState<{
     loading: boolean;
     data?: AiAdviceData;
@@ -138,6 +217,12 @@ export function PultScreen() {
       .listDeals({ status: "ACTIVE" })
       .then((r) => setActiveDeals(r.items.length))
       .catch(() => setActiveDeals(null));
+    /* Этап 5: карточки аналитики за неделю (тихо, без блокировки). */
+    api
+      .getAnalyticsSummary("week")
+      .then((r) => setWeekSummary(r))
+      .catch(() => setWeekSummary(null))
+      .finally(() => setWeekLoading(false));
   }, [load]);
 
   const dateStr = new Intl.DateTimeFormat("ru-RU", {
@@ -149,7 +234,8 @@ export function PultScreen() {
 
   return (
     <div className="screen-rise">
-      <header className="flex items-center justify-between gap-3 px-5 pt-6">
+      {/* Шапка: на 375px кнопки переносятся на вторую строку — без обрезки. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 pt-6">
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
             <Sprout size={19} />
@@ -204,6 +290,27 @@ export function PultScreen() {
             Разместить товар
           </Btn>
         </div>
+      </section>
+
+      {/* Этап 5: карточки аналитики → экран «Аналитика». */}
+      <section className="px-5 pt-6">
+        <AnalyticsCards
+          summary={weekSummary}
+          loading={weekLoading}
+          activeDeals={activeDeals}
+          onOpen={() => navigate("/analytics")}
+        />
+        {weekSummary === null && !weekLoading && (
+          <button
+            type="button"
+            onClick={() => navigate("/analytics")}
+            className="press mt-2 flex w-full items-center justify-center gap-1 text-[12px] font-semibold text-accent"
+          >
+            <TrendingUp size={13} />
+            Аналитика
+            <ChevronRight size={12} />
+          </button>
+        )}
       </section>
 
       {loading && positions.length === 0 ? (

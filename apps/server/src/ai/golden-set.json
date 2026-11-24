@@ -464,6 +464,228 @@
         "sortedByPrice": true,
         "recommendationNonEmpty": true
       }
+    },
+    {
+      "id": "advice-stage5-stale",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [],
+          "recentListings": [],
+          "staleListings": [],
+          "positionsInStock": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "volumeKg": 3000,
+              "salePrice": 212.75
+            }
+          ],
+          "cooledDownChannels": [],
+          "inboxLeads": [
+            {
+              "id": "lead-1",
+              "name": "Пётр",
+              "interest": "люцерна 2 класс",
+              "status": "NEW",
+              "days": 4,
+              "answered": false
+            },
+            {
+              "id": "lead-2",
+              "name": "Ольга",
+              "interest": "суданка",
+              "status": "NEW",
+              "days": 1,
+              "answered": false
+            }
+          ],
+          "activeDeals": [
+            {
+              "id": "deal-1",
+              "number": "СД-0007",
+              "buyerName": "Пётр Смирнов",
+              "status": "AWAITING_PAYMENT",
+              "amount": 100000,
+              "days": 3
+            }
+          ],
+          "staleDeals": [
+            {
+              "id": "deal-1",
+              "number": "СД-0007",
+              "buyerName": "Пётр Смирнов",
+              "status": "AWAITING_PAYMENT",
+              "amount": 100000,
+              "days": 3
+            }
+          ],
+          "unpublishedPositions": [],
+          "channelsInCooldown": [],
+          "staleChannels": [],
+          "newLeadsToday": 1
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "actionsMin": 1,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers",
+          "/inbox"
+        ],
+        "requiredLink": "/inbox"
+      }
+    },
+    {
+      "id": "advice-stage5-ok",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [],
+          "recentListings": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "channel": "AgroMarket",
+              "daysAgo": 1
+            }
+          ],
+          "staleListings": [],
+          "positionsInStock": [],
+          "cooledDownChannels": [],
+          "inboxLeads": [
+            {
+              "id": "lead-1",
+              "name": "Пётр",
+              "interest": "люцерна",
+              "status": "IN_PROGRESS",
+              "days": 2,
+              "answered": true
+            }
+          ],
+          "activeDeals": [],
+          "staleDeals": [],
+          "unpublishedPositions": [],
+          "channelsInCooldown": [],
+          "staleChannels": [],
+          "newLeadsToday": 0
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers",
+          "/inbox"
+        ]
+      }
+    },
+    {
+      "id": "advice-stage5-many",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "channel": "AgroMarket",
+              "days": 2
+            }
+          ],
+          "recentListings": [],
+          "staleListings": [
+            {
+              "title": "Эспарцет «Песчаный 1251»",
+              "channel": "Юг агро",
+              "daysAgo": 5
+            }
+          ],
+          "positionsInStock": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "volumeKg": 3000,
+              "salePrice": 212.75
+            }
+          ],
+          "cooledDownChannels": [
+            {
+              "name": "Юг агро",
+              "city": "Ростов-на-Дону",
+              "daysSince": 21
+            }
+          ],
+          "inboxLeads": [
+            {
+              "id": "lead-1",
+              "name": "Пётр",
+              "interest": "орех",
+              "status": "NEW",
+              "days": 5,
+              "answered": false
+            }
+          ],
+          "activeDeals": [
+            {
+              "id": "deal-2",
+              "number": "СД-0009",
+              "buyerName": "ООО «Заря»",
+              "status": "PAID",
+              "amount": 250000,
+              "days": 1
+            }
+          ],
+          "staleDeals": [
+            {
+              "id": "deal-1",
+              "number": "СД-0007",
+              "buyerName": "Иван",
+              "status": "AWAITING_PAYMENT",
+              "amount": 96000,
+              "days": 4
+            }
+          ],
+          "unpublishedPositions": [
+            {
+              "id": "pos-9",
+              "title": "Суданка",
+              "volumeKg": 5000,
+              "salePrice": 95
+            }
+          ],
+          "channelsInCooldown": [
+            {
+              "name": "Дон агро",
+              "city": "Ростов-на-Дону",
+              "daysSince": 6
+            }
+          ],
+          "staleChannels": [
+            {
+              "name": "Кубань барахолка",
+              "city": "Краснодар",
+              "daysSince": 20
+            }
+          ],
+          "newLeadsToday": 2
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "actionsMin": 1,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers",
+          "/inbox"
+        ]
+      }
     }
   ]
 }

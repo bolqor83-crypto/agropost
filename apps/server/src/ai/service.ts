@@ -184,7 +184,14 @@ export async function generateReply(
 
 /* ---------- 3. Advice ---------- */
 
-const ALLOWED_LINKS = new Set(["/publish", "/positions", "/channels", "/deals", "/suppliers"]);
+const ALLOWED_LINKS = new Set([
+  "/publish",
+  "/positions",
+  "/channels",
+  "/deals",
+  "/suppliers",
+  "/inbox",
+]);
 
 function adviceLinkOk(link: string): boolean {
   if (ALLOWED_LINKS.has(link)) return true;
