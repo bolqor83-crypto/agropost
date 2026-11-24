@@ -12,6 +12,7 @@ import { channelRoutes } from "./routes/channels.js";
 import { accountRoutes } from "./routes/accounts.js";
 import { listingRoutes } from "./routes/listings.js";
 import { parserRoutes } from "./routes/parser.js";
+import { aiRoutes } from "./routes/ai.js";
 import { registerErrorHandler } from "./errors.js";
 
 /**
@@ -19,7 +20,7 @@ import { registerErrorHandler } from "./errors.js";
  * Этап 1: поставщики, шаблоны культур, позиции (JSONB-атрибуты),
  * медиа и сертификаты (presigned uploads в R2), профиль пользователя.
  * Этап 2: каналы, аккаунты, умный подбор и размещения (шаблонный текст).
- * Этап 3 добавит /api/ai/* (OpenRouter, ключ только здесь).
+ * Этап 3.0: /api/ai/* — пять use cases (GLM через Z.AI, OpenRouter — резерв).
  *
  * Все ошибки — единый формат { error: { code, message } }.
  * Стек: tsx в рантайме (shared/ лежит вне apps/server, emit не нужен).
@@ -47,6 +48,7 @@ await app.register(channelRoutes);
 await app.register(accountRoutes);
 await app.register(listingRoutes);
 await app.register(parserRoutes);
+await app.register(aiRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

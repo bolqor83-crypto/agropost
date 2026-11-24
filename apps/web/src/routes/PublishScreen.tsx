@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
+import { listingPlatformForChannel } from "@shared/listing-text";
 import { CHANNEL_TAG_LABEL, submissionTarget } from "@shared/channels";
 import { CHANNEL_TYPE_LABEL, LISTING_STATUS_LABEL, SUBMISSION_METHOD_LABEL } from "@shared/labels";
 import type {
@@ -29,13 +30,14 @@ import type {
   RotationDTO,
   SuggestedChannelDTO,
 } from "@shared/types";
+import type { AiListingData, AiMeta } from "@shared/ai";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
 import { CHANNEL_ICON } from "../features/channels/icons";
 import { useActivityStore, usePublishStore, useToastStore } from "../stores/publish";
 import { useCatalog } from "../stores/catalog";
 import { useChannels } from "../stores/channels";
-import { Btn, Card, Chip, EmptyState, InfoRow, ScreenHeader, SectionTitle, Skeleton } from "../components/ui";
+import { Btn, Card, Chip, EmptyState, InfoRow, ScreenHeader, SectionTitle, Skeleton, TextArea } from "../components/ui";
 
 function StepBar({ step, onStep }: { step: 1 | 2 | 3 | 4; onStep: (s: 1 | 2 | 3 | 4) => void }) {
   const labels = ["Позиция", "Каналы", "Текст", "Итог"];
@@ -234,6 +236,18 @@ export function PublishScreen() {
   const [showAll, setShowAll] = useState(false);
   const [drafts, setDrafts] = useState<DraftState>({});
 
+  /* Этап 3.0: AI-текст по каждому каналу. Пока AI думает — skeleton;
+   * при ошибке остаётся шаблон и мягкий тост. */
+  type AiDraft = {
+    status: "idle" | "loading" | "done" | "error";
+    data?: AiListingData;
+    warnings?: string[];
+    meta?: AiMeta;
+  };
+  const [aiDrafts, setAiDrafts] = useState<Record<string, AiDraft>>({});
+  const [textOverrides, setTextOverrides] = useState<Record<string, string>>({});
+  const [savingText, setSavingText] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -288,6 +302,54 @@ export function PublishScreen() {
       }
     })();
   }, [step, position, channelIds, drafts]);
+
+  const generateAi = async (channelId: string, channel: ChannelDTO) => {
+    if (!position || aiDrafts[channelId]?.status === "loading") return;
+    const platform = listingPlatformForChannel(channel.type);
+    setAiDrafts((s) => ({ ...s, [channelId]: { status: "loading" } }));
+    try {
+      const res = await api.generateAiListing({ positionId: position.id, platform });
+      setTextOverrides((s) => ({ ...s, [channelId]: res.data.body }));
+      setAiDrafts((s) => ({
+        ...s,
+        [channelId]: { status: "done", data: res.data, warnings: res.warnings, meta: res.meta },
+      }));
+      /* Сразу сохраняем в черновик, чтобы «Скопировать» взяло AI-текст. */
+      const draft = drafts[channelId];
+      if (isListing(draft)) {
+        try {
+          const updated = await api.updateListing(draft.id, { text: res.data.body });
+          setDrafts((d) => ({ ...d, [channelId]: updated }));
+        } catch {
+          /* текст остаётся в поле; сохранится по blur */
+        }
+      }
+      showToast(
+        res.meta.status === "fallback"
+          ? "AI недоступен, использован шаблон"
+          : "Текст сгенерирован",
+      );
+    } catch {
+      setAiDrafts((s) => ({ ...s, [channelId]: { status: "error" } }));
+      showToast("AI недоступен, использован шаблон");
+    }
+  };
+
+  const saveText = async (channelId: string) => {
+    const text = textOverrides[channelId];
+    const draft = drafts[channelId];
+    if (text === undefined || !text.trim() || !isListing(draft) || text === draft.text) return;
+    setSavingText((s) => ({ ...s, [channelId]: true }));
+    try {
+      const updated = await api.updateListing(draft.id, { text });
+      setDrafts((d) => ({ ...d, [channelId]: updated }));
+      showToast("Текст сохранён");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Не удалось сохранить текст");
+    } finally {
+      setSavingText((s) => ({ ...s, [channelId]: false }));
+    }
+  };
 
   const markListing = async (channelId: string, status: "COPIED" | "PUBLISHED") => {
     const draft = drafts[channelId];
@@ -473,6 +535,8 @@ export function PublishScreen() {
               const draft = drafts[id];
               const Icon = ch ? CHANNEL_ICON[ch.type] : Send;
               const published = isListing(draft) && draft.status === "PUBLISHED";
+              const ai = aiDrafts[id];
+              const draftText = textOverrides[id] ?? (isListing(draft) ? draft.text : "");
               return (
                 <Card key={id} className="p-4">
                   <div className="flex items-center gap-3">
@@ -510,20 +574,70 @@ export function PublishScreen() {
                     </p>
                   )}
 
-                  <div className="mt-3 rounded-[14px] bg-subtle px-4 py-3">
-                    {draft === "pending" && (
-                      <p className="text-[13px] font-medium text-soft">Собираю черновик…</p>
-                    )}
-                    {draft === "failed" && (
-                      <p className="text-[13px] font-semibold text-warm">
-                        Черновик не создан — вернитесь и снимите этот канал
-                      </p>
-                    )}
-                    {isListing(draft) && (
-                      <p className="whitespace-pre-line text-[13px] font-medium leading-relaxed text-ink">
-                        {draft.text}
-                      </p>
-                    )}
+                  <div className="mt-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-soft">Текст объявления</span>
+                      <button
+                        type="button"
+                        onClick={() => ch && void generateAi(id, ch)}
+                        disabled={!ch || ai?.status === "loading"}
+                        className="press inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white shadow-soft disabled:opacity-40"
+                      >
+                        <Sparkles size={13} className={ai?.status === "loading" ? "animate-spin" : ""} />
+                        {ai?.status === "loading" ? "Думаю…" : "Сгенерировать с AI"}
+                      </button>
+                    </div>
+
+                    {ai?.status === "loading" ? (
+                      <div className="rounded-[14px] bg-subtle px-4 py-3">
+                        <div className="flex flex-col gap-2">
+                          <Skeleton className="h-3.5 w-4/5" />
+                          <Skeleton className="h-3.5 w-full" />
+                          <Skeleton className="h-3.5 w-3/5" />
+                        </div>
+                        <p className="mt-2 text-[11px] font-medium text-soft">
+                          AI собирает текст — 2–3 секунды
+                        </p>
+                      </div>
+                    ) : draft === "pending" ? (
+                      <div className="rounded-[14px] bg-subtle px-4 py-3">
+                        <p className="text-[13px] font-medium text-soft">Собираю черновик…</p>
+                      </div>
+                    ) : draft === "failed" ? (
+                      <div className="rounded-[14px] bg-subtle px-4 py-3">
+                        <p className="text-[13px] font-semibold text-warm">
+                          Черновик не создан — вернитесь и снимите этот канал
+                        </p>
+                      </div>
+                    ) : isListing(draft) ? (
+                      <>
+                        <TextArea
+                          value={draftText}
+                          onChange={(e) =>
+                            setTextOverrides((s) => ({ ...s, [id]: e.target.value }))
+                          }
+                          onBlur={() => void saveText(id)}
+                          rows={8}
+                          className="min-h-[160px] resize-y text-[13px] leading-relaxed"
+                          aria-label="Текст объявления"
+                        />
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-medium text-soft">
+                            {ai?.status === "done" && ai.meta && ai.meta.status !== "fallback"
+                              ? `AI · ${ai.meta.model} · ${(ai.meta.latencyMs / 1000).toFixed(1)} с`
+                              : ai?.status === "done"
+                                ? "Шаблон · AI недоступен"
+                                : "Шаблон · можно отредактировать"}
+                          </span>
+                          <span className="text-[11px] font-medium text-soft">
+                            {savingText[id] ? "Сохраняю…" : `${draftText.length} симв.`}
+                          </span>
+                        </div>
+                        {ai?.warnings?.[0] ? (
+                          <p className="mt-1 text-[11px] font-medium text-soft">{ai.warnings[0]}</p>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
 
                   {isListing(draft) && (

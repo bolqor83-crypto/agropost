@@ -34,6 +34,19 @@ import type {
   SupplierInput,
   UserDTO,
 } from "@shared/types";
+import type {
+  AiAdviceData,
+  AiAdviceInput,
+  AiListingData,
+  AiListingInput,
+  AiLogisticsData,
+  AiLogisticsInput,
+  AiPriceAnalysisData,
+  AiPriceAnalysisInput,
+  AiReplyData,
+  AiReplyInput,
+  AiResponse,
+} from "@shared/ai";
 
 export class ApiError extends Error {
   constructor(
@@ -265,4 +278,45 @@ export function updateListing(id: string, patch: ListingUpdateInput): Promise<Li
 
 export function deleteListing(id: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/listings/${id}`, { method: "DELETE" });
+}
+
+/* ---------- Этап 3.0: AI-слой (5 use cases) ---------- */
+
+export function generateAiListing(input: AiListingInput): Promise<AiResponse<AiListingData>> {
+  return request<AiResponse<AiListingData>>("/ai/listing", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function generateAiReply(input: AiReplyInput): Promise<AiResponse<AiReplyData>> {
+  return request<AiResponse<AiReplyData>>("/ai/reply", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getAiAdvice(input: AiAdviceInput = {}): Promise<AiResponse<AiAdviceData>> {
+  return request<AiResponse<AiAdviceData>>("/ai/advice", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function analyzeAiPrice(
+  input: AiPriceAnalysisInput,
+): Promise<AiResponse<AiPriceAnalysisData>> {
+  return request<AiResponse<AiPriceAnalysisData>>("/ai/price_analysis", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function planAiLogistics(
+  input: AiLogisticsInput,
+): Promise<AiResponse<AiLogisticsData>> {
+  return request<AiResponse<AiLogisticsData>>("/ai/logistics", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

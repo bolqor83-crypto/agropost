@@ -5,14 +5,14 @@ export async function metaRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/meta", async () => ({
     ok: true,
     name: "АгроПост",
-    version: "0.4.0",
-    stage: 2.5,
+    version: "0.5.0",
+    stage: 3.0,
     stages: {
       suppliers: true, // этап 1
       positions: true, // этап 1
       channels: true, // этап 2 (+ гео-ротация 2.1, подача 2.5)
       parser: true, // этап 2.5
-      ai: false, // этап 3
+      ai: true, // этап 3.0 (5 use cases)
       deals: false, // этап 4
       advice: false, // этап 5
     },

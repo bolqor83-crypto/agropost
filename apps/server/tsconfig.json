@@ -18,5 +18,6 @@
       "@shared/*": ["../../shared/*"]
     }
   },
-  "include": ["src", "prisma", "prisma.config.ts", "../../shared"]
+  "include": ["src", "prisma", "prisma.config.ts", "../../shared"],
+  "exclude": ["src/ai/__tests__"]
 }

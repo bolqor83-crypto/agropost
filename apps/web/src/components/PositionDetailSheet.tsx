@@ -22,11 +22,12 @@ import { formatAttrValue, positionName } from "@shared/attributes";
 import { POSITION_STATUS_LABEL, SHIPPING_MODE_LABEL, SUPPLIER_LOCATION_LABEL } from "@shared/labels";
 import { calcMargin } from "@shared/pricing";
 import type { MarketDTO, PositionDTO } from "@shared/types";
+import type { AiMeta, AiPriceAnalysisData } from "@shared/ai";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
 import { taxRateOf, useCatalog } from "../stores/catalog";
 import { usePublishStore, useToastStore } from "../stores/publish";
-import { Btn, Chip, InfoRow, Sheet, TextInput } from "./ui";
+import { Btn, Chip, InfoRow, Sheet, Skeleton, TextInput } from "./ui";
 
 function statusTone(status: PositionDTO["status"]): "green" | "warm" | "neutral" {
   if (status === "IN_STOCK") return "green";
@@ -202,6 +203,7 @@ export function PositionDetailSheet({
   const resetFlow = usePublishStore((s) => s.reset);
   const choosePosition = usePublishStore((s) => s.choosePosition);
   const setStep = usePublishStore((s) => s.setStep);
+  const [priceOpen, setPriceOpen] = useState(false);
 
   const margin = calcMargin(
     position.salePrice,
@@ -220,7 +222,8 @@ export function PositionDetailSheet({
   };
 
   return (
-    <Sheet title="Позиция" onClose={onClose}>
+    <>
+      <Sheet title="Позиция" onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[18px] font-semibold leading-snug text-ink">
@@ -291,11 +294,22 @@ export function PositionDetailSheet({
       <div className="mt-3 rounded-[14px] bg-subtle px-4 py-1">
         <InfoRow label="Закуп поставщика" value={`${fmtRub(position.supplierPrice)} / кг`} />
         <InfoRow label="Наценка" value={`+${fmtNum(position.markupPercent)}%`} />
-        <InfoRow
-          label="Цена продажи"
-          value={`${fmtRub(position.salePrice)} / кг`}
-          valueClass="text-accent text-[16px]"
-        />
+        <div className="flex items-center justify-between gap-3 py-2">
+          <span className="shrink-0 text-[13px] font-medium text-soft">Цена продажи</span>
+          <span className="flex items-center gap-2">
+            <span className="text-[16px] font-semibold text-accent">
+              {fmtRub(position.salePrice)} / кг
+            </span>
+            <button
+              type="button"
+              onClick={() => setPriceOpen(true)}
+              className="press inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent"
+            >
+              <TrendingUp size={12} />
+              Проверить цену
+            </button>
+          </span>
+        </div>
         {/* Этап 2.5: рынок конкурентов по этой культуре (парсер). */}
         <MarketRow positionId={position.id} />
         <div className="my-2 h-px bg-line" />
@@ -361,10 +375,132 @@ export function PositionDetailSheet({
           Разместить эту позицию
         </Btn>
       </div>
-      <p className="flex items-center justify-center gap-1.5 px-1 pt-3 text-center text-[11px] font-medium text-soft">
-        <ShieldCheck size={12} className="shrink-0" />
-        В объявлениях и документах покупатель увидит только товар — поставщик скрыт
-      </p>
+        <p className="flex items-center justify-center gap-1.5 px-1 pt-3 text-center text-[11px] font-medium text-soft">
+          <ShieldCheck size={12} className="shrink-0" />
+          В объявлениях и документах покупатель увидит только товар — поставщик скрыт
+        </p>
+      </Sheet>
+
+      {priceOpen && (
+        <PriceAnalysisSheet position={position} onClose={() => setPriceOpen(false)} />
+      )}
+    </>
+  );
+}
+
+/** Этап 3.0: проверка цены относительно рынка — в отдельном шите. */
+function PriceAnalysisSheet({
+  position,
+  onClose,
+}: {
+  position: PositionDTO;
+  onClose: () => void;
+}) {
+  const [state, setState] = useState<{
+    loading: boolean;
+    data?: AiPriceAnalysisData;
+    warnings?: string[];
+    meta?: AiMeta;
+    error?: string;
+  }>({ loading: true });
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .analyzeAiPrice({ positionId: position.id })
+      .then((res) => {
+        if (alive) {
+          setState({
+            loading: false,
+            data: res.data,
+            warnings: res.warnings,
+            meta: res.meta,
+          });
+        }
+      })
+      .catch((err) => {
+        if (alive) {
+          setState({
+            loading: false,
+            error: err instanceof Error ? err.message : "Не удалось проверить цену",
+          });
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [position.id]);
+
+  const data = state.data;
+  const positionLabel =
+    data?.marketPosition === "below"
+      ? "Ниже рынка"
+      : data?.marketPosition === "above"
+        ? "Выше рынка"
+        : "В рынке";
+  const positionTone =
+    data?.marketPosition === "below" ? "green" : data?.marketPosition === "above" ? "warm" : "neutral";
+
+  return (
+    <Sheet title="Проверка цены" onClose={onClose}>
+      {state.loading ? (
+        <div className="flex flex-col gap-2 py-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      ) : state.error ? (
+        <p className="py-3 text-[13px] font-semibold text-warm">{state.error}</p>
+      ) : data ? (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[12px] font-medium text-soft">Наша цена</p>
+              <p className="text-[20px] font-semibold text-ink">{fmtRub(data.ourPrice)} / кг</p>
+            </div>
+            <Chip tone={positionTone}>{positionLabel}</Chip>
+          </div>
+
+          <div className="mt-3 rounded-[14px] bg-subtle px-4 py-1">
+            <InfoRow
+              label="Средняя по рынку"
+              value={data.marketAvg === null ? "нет данных" : `${fmtRub(data.marketAvg)} / кг`}
+            />
+            <InfoRow
+              label="Разница"
+              value={
+                data.delta === null
+                  ? "—"
+                  : `${data.delta > 0 ? "+" : ""}${fmtRub(Math.abs(data.delta))} / кг`
+              }
+              valueClass={data.delta !== null && data.delta < 0 ? "text-accent" : "text-ink"}
+            />
+          </div>
+
+          <div className="mt-3 rounded-[14px] border border-line px-4 py-3">
+            <p className="text-[12px] font-semibold text-soft">Рекомендация</p>
+            <p className="mt-1 text-[14px] font-medium leading-relaxed text-ink">
+              {data.recommendation}
+            </p>
+          </div>
+
+          {state.warnings && state.warnings.length > 0 && (
+            <div className="mt-3 rounded-[14px] bg-warm-soft px-4 py-2">
+              {state.warnings.map((w) => (
+                <p key={w} className="py-0.5 text-[11px] font-medium leading-relaxed text-warm">
+                  {w}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <p className="pt-2 text-[11px] font-medium text-soft">
+            {state.meta?.status === "fallback"
+              ? "Шаблонная рекомендация — AI недоступен"
+              : `AI · ${state.meta?.model ?? "—"} · ${((state.meta?.latencyMs ?? 0) / 1000).toFixed(1)} с`}
+          </p>
+        </>
+      ) : null}
     </Sheet>
   );
 }

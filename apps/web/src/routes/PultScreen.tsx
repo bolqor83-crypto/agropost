@@ -6,14 +6,16 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bean, ChevronRight, Send, ShieldCheck, Sprout, Wheat } from "lucide-react";
+import { Bean, ChevronRight, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
+import type { AiAdviceData, AiMeta } from "@shared/ai";
+import * as api from "../api/client";
 import { useCatalog } from "../stores/catalog";
 import { useActivityStore } from "../stores/publish";
 import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
 import type { ActivityItem } from "../api/types";
-import { Btn, Card, Chip, SectionTitle, Skeleton } from "../components/ui";
+import { Btn, Card, Chip, EmptyState, SectionTitle, Sheet, Skeleton } from "../components/ui";
 import { PositionDetailSheet } from "../components/PositionDetailSheet";
 
 function CultureIcon({ type }: { type: "SEED" | "NUT" }) {
@@ -92,6 +94,35 @@ export function PultScreen() {
   const activity = useActivityStore((s) => s.items);
   const { positions, loading, error, load } = useCatalog();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [adviceOpen, setAdviceOpen] = useState(false);
+  const [advice, setAdvice] = useState<{
+    loading: boolean;
+    data?: AiAdviceData;
+    warnings?: string[];
+    meta?: AiMeta;
+    error?: string;
+  }>({ loading: true });
+
+  const loadAdvice = () => {
+    setAdviceOpen(true);
+    setAdvice({ loading: true });
+    api
+      .getAiAdvice()
+      .then((res) => {
+        setAdvice({
+          loading: false,
+          data: res.data,
+          warnings: res.warnings,
+          meta: res.meta,
+        });
+      })
+      .catch((err) => {
+        setAdvice({
+          loading: false,
+          error: err instanceof Error ? err.message : "Не удалось получить подсказку",
+        });
+      });
+  };
 
   useEffect(() => {
     void load();
@@ -106,14 +137,21 @@ export function PultScreen() {
 
   return (
     <div className="screen-rise">
-      <header className="flex items-center justify-between px-5 pt-6">
+      <header className="flex items-center justify-between gap-3 px-5 pt-6">
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
             <Sprout size={19} />
           </div>
           <span className="text-[16px] font-semibold text-ink">АгроПост</span>
         </div>
-        <Chip tone="outline">{dateStr}</Chip>
+        <button
+          type="button"
+          onClick={loadAdvice}
+          className="press inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-[12px] font-semibold text-white shadow-soft"
+        >
+          <Sparkles size={13} />
+          Что сделать?
+        </button>
       </header>
 
       <section className="px-5 pt-5">
@@ -121,7 +159,7 @@ export function PultScreen() {
           Что разместим сегодня?
         </h1>
         <p className="mt-1 text-[13px] font-medium text-soft">
-          Позиции на складе обновлены вручную, без напоминаний
+          {dateStr} · позиции на складе обновлены вручную, без напоминаний
         </p>
         <div className="pt-4">
           <Btn full size="lg" onClick={() => navigate("/publish")} ariaLabel="Разместить товар">
@@ -184,6 +222,64 @@ export function PultScreen() {
           onClose={() => setOpenId(null)}
           onChanged={() => void load(true)}
         />
+      )}
+
+      {adviceOpen && (
+        <Sheet title="Что сделать?" onClose={() => setAdviceOpen(false)}>
+          {advice.loading ? (
+            <div className="flex flex-col gap-3 py-2">
+              <Skeleton className="h-[86px] w-full rounded-[18px]" />
+              <Skeleton className="h-[86px] w-full rounded-[18px]" />
+            </div>
+          ) : advice.error ? (
+            <p className="py-3 text-[13px] font-semibold text-warm">{advice.error}</p>
+          ) : advice.data && advice.data.actions.length === 0 ? (
+            <EmptyState
+              icon={<ShieldCheck size={26} />}
+              title="Сейчас всё под контролем"
+              caption="Новых действий нет — можно отдохнуть или проверить остатки"
+            />
+          ) : (
+            advice.data && (
+              <div className="flex flex-col gap-3">
+                {advice.data.actions.map((action, index) => (
+                  <Card
+                    key={`${action.link}-${index}`}
+                    onClick={() => {
+                      setAdviceOpen(false);
+                      navigate(action.link);
+                    }}
+                    className="p-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Chip tone={action.priority === "high" ? "warm" : "outline"}>
+                        {action.priority === "high" ? "Срочно" : "Сегодня"}
+                      </Chip>
+                    </div>
+                    <p className="mt-2 text-[14px] font-semibold leading-snug text-ink">
+                      {action.action}
+                    </p>
+                    <p className="mt-1 text-[12px] font-medium leading-relaxed text-soft">
+                      {action.reason}
+                    </p>
+                    <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-accent">
+                      Перейти
+                      <ChevronRight size={13} />
+                    </span>
+                  </Card>
+                ))}
+                {advice.warnings && advice.warnings.length > 0 && (
+                  <p className="px-1 text-[11px] font-medium text-soft">{advice.warnings[0]}</p>
+                )}
+                <p className="px-1 text-[11px] font-medium text-soft">
+                  {advice.meta?.status === "fallback"
+                    ? "Подсказка по правилам — AI недоступен"
+                    : `AI · ${advice.meta?.model ?? "—"} · ${((advice.meta?.latencyMs ?? 0) / 1000).toFixed(1)} с`}
+                </p>
+              </div>
+            )
+          )}
+        </Sheet>
       )}
     </div>
   );

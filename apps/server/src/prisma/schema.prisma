@@ -290,6 +290,38 @@ model Listing {
   @@index([status])
 }
 
+/* ---------- Этап 3.0: журнал вызовов AI ---------- */
+
+enum AiCallStatus {
+  OK
+  RETRY
+  FALLBACK
+  ERROR
+}
+
+/// Один вызов AI: контракт, хэш входа, результат и расход токенов.
+/// Нужен для отладки промптов и оценки стоимости golden set.
+model AiCall {
+  id           String       @id @default(cuid())
+  useCase      String
+  /// SHA-256(JSON.stringify({useCase, input})) — ключ кэша.
+  inputHash    String
+  /// Итоговые данные (AI или fallback) — для аудита.
+  outputJson   Json?
+  latencyMs    Int          @default(0)
+  status       AiCallStatus
+  errorMessage String?
+  tokensIn     Int?
+  tokensOut    Int?
+  /// Провайдер и модель — чтобы видеть, кто реально отвечал.
+  provider     String?
+  model        String?
+  createdAt    DateTime     @default(now())
+
+  @@index([useCase, createdAt])
+  @@index([inputHash])
+}
+
 /* ---------- Этап 2.5: цены конкурентов (парсер) ---------- */
 
 /// Обезличенные цены с досок объявлений и Telegram-каналов (152-ФЗ:

@@ -32,6 +32,22 @@ services:
         sync: false
       - key: OPENROUTER_KEY
         sync: false
+      # AI-слой (этап 3.0): GLM через Z.AI — основной провайдер,
+      # OpenRouter — резервный. Ключи только здесь, на бэкенде.
+      - key: AI_PROVIDER
+        value: glm
+      - key: GLM_API_KEY
+        sync: false
+      - key: GLM_BASE_URL
+        value: https://api.z.ai/api/paas/v4
+      - key: GLM_MODEL_FLASH
+        value: glm-5.3-flash
+      - key: GLM_MODEL_PRO
+        value: glm-5.3
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
       - key: R2_ENDPOINT
         sync: false
       - key: R2_BUCKET

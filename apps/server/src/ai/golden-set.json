@@ -1,0 +1,469 @@
+{
+  "version": 1,
+  "description": "Golden set этапа 3.0: регрессия AI при смене промптов/моделей. Проверяются свойства, не точный текст.",
+  "cases": [
+    {
+      "id": "listing-avito-price",
+      "useCase": "listing",
+      "positionId": "pos-1",
+      "input": {
+        "positionId": "pos-1",
+        "platform": "avito",
+        "accent": "price"
+      },
+      "expect": {
+        "required": [
+          "212"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 3000,
+        "titleMaxLength": 70
+      }
+    },
+    {
+      "id": "listing-telegram-quality",
+      "useCase": "listing",
+      "positionId": "pos-3",
+      "input": {
+        "positionId": "pos-3",
+        "platform": "telegram",
+        "accent": "quality"
+      },
+      "expect": {
+        "required": [
+          "118"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 3000,
+        "titleMaxLength": 70
+      }
+    },
+    {
+      "id": "listing-agroserver-volume",
+      "useCase": "listing",
+      "positionId": "pos-5",
+      "input": {
+        "positionId": "pos-5",
+        "platform": "agroserver",
+        "accent": "volume"
+      },
+      "expect": {
+        "required": [
+          "138"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 3000,
+        "titleMaxLength": 70
+      }
+    },
+    {
+      "id": "reply-price",
+      "useCase": "reply",
+      "positionId": "pos-1",
+      "input": {
+        "positionId": "pos-1",
+        "incomingMessage": "Сколько стоит люцерна и какая минимальная партия?"
+      },
+      "expect": {
+        "required": [
+          "212"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 1000
+      }
+    },
+    {
+      "id": "reply-delivery",
+      "useCase": "reply",
+      "positionId": "pos-1",
+      "input": {
+        "positionId": "pos-1",
+        "incomingMessage": "Как отправляете и когда оплата?"
+      },
+      "expect": {
+        "required": [
+          "оплат"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 1000
+      }
+    },
+    {
+      "id": "reply-unknown",
+      "useCase": "reply",
+      "positionId": "pos-3",
+      "input": {
+        "positionId": "pos-3",
+        "incomingMessage": "Какая кислотность у ореха?"
+      },
+      "expect": {
+        "required": [],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 1000
+      }
+    },
+    {
+      "id": "reply-volume",
+      "useCase": "reply",
+      "positionId": "pos-4",
+      "input": {
+        "positionId": "pos-4",
+        "incomingMessage": "Сколько есть в наличии и в каких мешках?"
+      },
+      "expect": {
+        "required": [
+          "кг"
+        ],
+        "forbidden": [
+          "Агро-Юг",
+          "СемСтарт",
+          "ОрехПром",
+          "Павловская",
+          "Ленинградская",
+          "Тихорецк",
+          "склад"
+        ],
+        "maxLength": 1000
+      }
+    },
+    {
+      "id": "advice-stale",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "channel": "AgroMarket",
+              "days": 2
+            }
+          ],
+          "recentListings": [],
+          "staleListings": [
+            {
+              "title": "Эспарцет «Песчаный 1251»",
+              "channel": "Юг агро",
+              "daysAgo": 5
+            }
+          ],
+          "positionsInStock": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "volumeKg": 3000,
+              "salePrice": 212.75
+            }
+          ],
+          "cooledDownChannels": []
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers"
+        ],
+        "requiredLink": "/publish"
+      }
+    },
+    {
+      "id": "advice-empty",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [],
+          "recentListings": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "channel": "AgroMarket",
+              "daysAgo": 1
+            }
+          ],
+          "staleListings": [],
+          "positionsInStock": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "volumeKg": 3000,
+              "salePrice": 212.75
+            }
+          ],
+          "cooledDownChannels": []
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers"
+        ]
+      }
+    },
+    {
+      "id": "advice-cooled",
+      "useCase": "advice",
+      "input": {
+        "context": {
+          "activeLeads": [],
+          "recentListings": [],
+          "staleListings": [],
+          "positionsInStock": [
+            {
+              "title": "Люцерна «Вега 87»",
+              "volumeKg": 3000,
+              "salePrice": 212.75
+            }
+          ],
+          "cooledDownChannels": [
+            {
+              "name": "Юг агро",
+              "city": "Ростов-на-Дону",
+              "daysSince": 21
+            },
+            {
+              "name": "Дон фермер",
+              "city": "Ростов-на-Дону",
+              "daysSince": 30
+            }
+          ]
+        }
+      },
+      "expect": {
+        "actionsMax": 3,
+        "linksAllowed": [
+          "/publish",
+          "/positions",
+          "/channels",
+          "/deals",
+          "/suppliers"
+        ]
+      }
+    },
+    {
+      "id": "price-below",
+      "useCase": "price_analysis",
+      "positionId": "pos-1",
+      "input": {
+        "positionId": "pos-1",
+        "market": {
+          "min": 220,
+          "max": 260,
+          "avg": 240,
+          "sources": [
+            "AGROSERVER",
+            "TELEGRAM"
+          ],
+          "samples": [
+            {
+              "price": 220,
+              "source": "AGROSERVER"
+            },
+            {
+              "price": 235,
+              "source": "TELEGRAM"
+            },
+            {
+              "price": 245,
+              "source": "AGROSERVER"
+            },
+            {
+              "price": 255,
+              "source": "TELEGRAM"
+            },
+            {
+              "price": 260,
+              "source": "AGROSERVER"
+            }
+          ],
+          "count": 5
+        }
+      },
+      "expect": {
+        "marketPosition": "below",
+        "ourPrice": 212.75,
+        "marketAvg": 240,
+        "delta": -27.25
+      }
+    },
+    {
+      "id": "price-above-small-sample",
+      "useCase": "price_analysis",
+      "positionId": "pos-3",
+      "input": {
+        "positionId": "pos-3",
+        "market": {
+          "min": 90,
+          "max": 110,
+          "avg": 100,
+          "sources": [
+            "AGROSERVER"
+          ],
+          "samples": [
+            {
+              "price": 90,
+              "source": "AGROSERVER"
+            },
+            {
+              "price": 110,
+              "source": "AGROSERVER"
+            }
+          ],
+          "count": 2
+        }
+      },
+      "expect": {
+        "marketPosition": "above",
+        "ourPrice": 118,
+        "marketAvg": 100,
+        "delta": 18,
+        "warningsNonEmpty": true
+      }
+    },
+    {
+      "id": "price-no-market",
+      "useCase": "price_analysis",
+      "positionId": "pos-6",
+      "input": {
+        "positionId": "pos-6",
+        "market": {
+          "min": null,
+          "max": null,
+          "avg": null,
+          "sources": [],
+          "samples": [],
+          "count": 0
+        }
+      },
+      "expect": {
+        "marketPosition": "at",
+        "ourPrice": 203,
+        "marketAvg": null,
+        "delta": null,
+        "warningsNonEmpty": true
+      }
+    },
+    {
+      "id": "logistics-three",
+      "useCase": "logistics",
+      "input": {
+        "shipment": {
+          "fromRegion": "Краснодарский край",
+          "fromCity": "Павловская",
+          "toRegion": "Ростовская область",
+          "toCity": "Ростов-на-Дону",
+          "weightKg": 3000,
+          "bagWeightKg": 25,
+          "bagsCount": 120,
+          "volumeM3": 5.2
+        },
+        "availableCarriers": [
+          {
+            "name": "ПЭК",
+            "price": 12500,
+            "days": 3
+          },
+          {
+            "name": "СДЭК",
+            "price": 11200,
+            "days": 5
+          },
+          {
+            "name": "Деловые линии",
+            "price": 14900,
+            "days": 2
+          }
+        ]
+      },
+      "expect": {
+        "options": 3,
+        "sortedByPrice": true,
+        "recommendationNonEmpty": true
+      }
+    },
+    {
+      "id": "logistics-two",
+      "useCase": "logistics",
+      "input": {
+        "shipment": {
+          "fromRegion": "Краснодарский край",
+          "fromCity": "Павловская",
+          "toRegion": "Ставропольский край",
+          "toCity": "Ставрополь",
+          "weightKg": 1250,
+          "bagWeightKg": 25,
+          "bagsCount": 50,
+          "volumeM3": 2.1
+        },
+        "availableCarriers": [
+          {
+            "name": "ПЭК",
+            "price": 7800,
+            "days": 2
+          },
+          {
+            "name": "СДЭК",
+            "price": 7100,
+            "days": 4
+          }
+        ]
+      },
+      "expect": {
+        "options": 2,
+        "sortedByPrice": true,
+        "recommendationNonEmpty": true
+      }
+    }
+  ]
+}

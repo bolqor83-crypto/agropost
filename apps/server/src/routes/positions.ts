@@ -21,6 +21,7 @@ import { normalizeAttributes } from "@shared/attributes";
 import { rankForRotation, buildRotation, withRotationInfo } from "@shared/rotation";
 import { aggregateMarket, MARKET_WINDOW_DAYS, marketQueriesFor } from "@shared/market";
 import type { AttributeField, MarketDTO, MarketSampleDTO } from "@shared/types";
+import { invalidateAiCache } from "../ai/cache.js";
 
 function buildWhere(query: Record<string, unknown>): Prisma.SupplierPositionWhereInput {
   const where: Prisma.SupplierPositionWhereInput = {};
@@ -152,12 +153,15 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
       },
       include: includePosition,
     });
+    /* Этап 3.0: позиция изменилась — AI-кэш по ней устарел. */
+    invalidateAiCache({ positionId: id });
     return mapPosition(row);
   });
 
   app.delete("/api/positions/:id", async (req) => {
     const { id } = req.params as { id: string };
     await prisma.supplierPosition.delete({ where: { id } });
+    invalidateAiCache({ positionId: id });
     return { ok: true };
   });
 

@@ -17,6 +17,7 @@ import {
   parseOrThrow,
 } from "../validation.js";
 import { includeChannel, mapChannel } from "../mappers.js";
+import { invalidateAiCache } from "../ai/cache.js";
 
 function str(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
@@ -147,6 +148,8 @@ export async function channelRoutes(app: FastifyInstance): Promise<void> {
       },
       include: includeChannel,
     });
+    /* Этап 3.0: канал изменился — сбрасываем AI-кэш (в текстах есть площадки). */
+    invalidateAiCache({ all: true });
     return mapChannel(row);
   });
 
@@ -157,6 +160,7 @@ export async function channelRoutes(app: FastifyInstance): Promise<void> {
       throw conflict("У канала есть размещения — сначала удалите их");
     }
     await prisma.channel.delete({ where: { id } });
+    invalidateAiCache({ all: true });
     return { ok: true };
   });
 }
