@@ -206,6 +206,56 @@ describe("авторизация владельца (этап 5.1)", () => {
     expect(afterLogout.statusCode).toBe(401);
   });
 
+  /* ЭТАП 5.2 (аудит): ДЕФЕКТ, найденный реальным браузером. Клиент
+   * посылает Content-Type: application/json на POST без тела; Fastify
+   * дефолтно отвечал 400 FST_ERR_CTP_EMPTY_JSON_BODY — logout НЕ
+   * уничтожал сессию, cookie продолжал работать. Регресс-тесты ниже
+   * держат поведение «пустое JSON-тело = {}» (правило app.ts). */
+  test("logout с Content-Type json и ПУСТЫМ телом → 200, сессия уничтожена (этап 5.2)", async () => {
+    const cookie = await loginOk();
+    const token = cookie.split(";")[0].split("=")[1];
+    expect(await store.find(token)).not.toBeNull();
+
+    const logout = await app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      headers: { cookie, "content-type": "application/json" },
+      payload: "",
+    });
+    expect(logout.statusCode).toBe(200);
+    expect(logout.json().authenticated).toBe(false);
+    expect(await store.find(token)).toBeNull();
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/definitely-not-a-route",
+      headers: { cookie },
+    });
+    expect(after.statusCode).toBe(401);
+  });
+
+  test("refresh с Content-Type json и пустым телом → 200 (не 400)", async () => {
+    const cookie = await loginOk();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/refresh",
+      headers: { cookie, "content-type": "application/json" },
+      payload: "",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().authenticated).toBe(true);
+  });
+
+  test("битое JSON-тело по-прежнему даёт 400 (парсер не «проглатывает» мусор)", async () => {
+    const cookie = await loginOk();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/refresh",
+      headers: { cookie, "content-type": "application/json" },
+      payload: "не-json{{",
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   test("refresh продлевает сессию и выпускает новую cookie", async () => {
     const cookie = await loginOk();
     const res = await app.inject({ method: "POST", url: "/api/auth/refresh", headers: { cookie } });

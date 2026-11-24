@@ -289,6 +289,12 @@ model Channel {
 
   @@index([type])
   @@index([region])
+  /* ЭТАП 5.2: индексы этапа 2.5 объявлены в схеме — раньше их создавал
+     baseline (и прод через db push), а схема молчала: migrate dev показывал
+     дрейф. Теперь история миграций и schema.prisma согласованы. */
+  @@index([submissionMethod])
+  @@index([audienceType])
+  @@index([mirrorOf])
 }
 
 model Listing {

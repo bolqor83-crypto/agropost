@@ -76,6 +76,10 @@ services:
         sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      # Этап 5.2: id Telegram-аккаунта владельца (бот шлёт ему уведомления
+      # о лидах/ошибках; getMe не выдаёт его — узнайте у @userinfobot).
+      - key: TELEGRAM_USER_ID
+        sync: false
 
   # Этап 5.1 — сервис парсера цен (Python). ВЫКЛЮЧЕН по умолчанию:
   # раскомментируйте блок целиком и задайте PARSER_URL для agropost-api

@@ -123,7 +123,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${BASE}${path}`, {
       ...init,
       credentials: "include", /* HttpOnly-cookie сессии (этап 5.1) */
-      headers: { "Content-Type": "application/json", ...init?.headers },
+      /* ЭТАП 5.2 (аудит): Content-Type только с телом. Без тела заголовок
+       * провоцировал 400 FST_ERR_CTP_EMPTY_JSON_BODY на logout и действиях
+       * сделок — и logout не уничтожал серверную сессию. */
+      headers: {
+        ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiError(0, "NETWORK", "Сервер недоступен — проверьте, запущен ли API");

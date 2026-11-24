@@ -59,6 +59,34 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     logger: true,
   });
 
+  /* ЭТАП 5.2 (аудит): пустое JSON-тело = валидный запрос без данных.
+   *
+   * ДЕФЕКТ, найденный реальным браузером: клиент всегда посылает
+   * Content-Type: application/json — в том числе на POST без тела
+   * (logout, refresh, pay/close/deliver/cancel, suggest-channels).
+   * Fastify по умолчанию отвечает 400 FST_ERR_CTP_EMPTY_JSON_BODY:
+   * logout НЕ уничтожал серверную сессию (cookie жил дальше —
+   * приватные данные оставались доступными без повторного входа),
+   * а действия сделок падали. Тесты через inject() без content-type
+   * дефект не ловили. Допускаем пустое тело как {} — как GET. */
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_req, body, done) => {
+      const raw = body as string;
+      if (!raw || raw.trim().length === 0) {
+        done(null, {});
+        return;
+      }
+      try {
+        done(null, JSON.parse(raw));
+      } catch (err) {
+        (err as { statusCode?: number }).statusCode = 400;
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   /* CORS: только доверенные origin, credentials для них. */
   await app.register(cors, corsOptions());
 
