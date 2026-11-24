@@ -262,7 +262,7 @@ baseline отработает no-op'ом, stage51 добавит новое. Р�
 ## H. Git
 
 - Ветка: `fix/stage-5-1-security-analytics`
-- HEAD (актуальный, с отчётом): `8afcc48`
+- HEAD (актуальный, с отчётом): `30aac75`
 - Коммит кода: `01902c36be13494bf022186c2debf33f5d7fdade` — «этап 5.1: безопасность и корректная аналитика»
 - Коммит отчёта: `8afcc48` — «docs: отчёт этапа 5.1…»
 - Push: `origin/fix/stage-5-1-security-analytics` — успешно
