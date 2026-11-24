@@ -35,8 +35,9 @@ const statuses: Record<string, AiStatus> = {};
 function assertRequiredForbidden(text: string, expectObj: Record<string, unknown>): void {
   const required = (expectObj["required"] as string[] | undefined) ?? [];
   const forbidden = (expectObj["forbidden"] as string[] | undefined) ?? [];
-  for (const value of required) expect(text).toContain(value);
+  /* Регистронезависимо: «Оплата…» в начале предложения — тот же факт. */
   const lower = text.toLowerCase();
+  for (const value of required) expect(lower).toContain(value.toLowerCase());
   for (const value of forbidden) expect(lower).not.toContain(value.toLowerCase());
 }
 
