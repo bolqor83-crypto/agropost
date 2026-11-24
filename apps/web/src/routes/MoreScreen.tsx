@@ -281,7 +281,7 @@ export function MoreScreen() {
 
         <button
           type="button"
-          onClick={() => navigate("/profile")}
+          onClick={() => navigate("/settings")}
           className="press mt-4 flex w-full items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-3.5 text-left"
         >
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-subtle text-soft">
@@ -289,7 +289,7 @@ export function MoreScreen() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-ink">Настройки</p>
-            <p className="text-[12px] font-medium text-soft">Реквизиты, налог, тёмная тема</p>
+            <p className="text-[12px] font-medium text-soft">Авито API, фиды площадкам, реквизиты, тёмная тема</p>
           </div>
           <ChevronRight size={16} className="shrink-0 text-soft" />
         </button>

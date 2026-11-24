@@ -103,6 +103,8 @@ export async function channelRoutes(app: FastifyInstance): Promise<void> {
         confirmationStatus: data.confirmationStatus ?? "CONFIRMED",
         mirrorOf: data.mirrorOf ?? null,
         audienceType: data.audienceType ?? null,
+        /* ЭТАП 9: бейдж автоматизации; по умолчанию чужой канал — SEMI. */
+        automationLevel: data.automationLevel ?? "SEMI",
       },
       include: includeChannel,
     });
@@ -145,6 +147,8 @@ export async function channelRoutes(app: FastifyInstance): Promise<void> {
         ...(data.confirmationStatus !== undefined ? { confirmationStatus: data.confirmationStatus } : {}),
         ...(data.mirrorOf !== undefined ? { mirrorOf: data.mirrorOf ?? null } : {}),
         ...(data.audienceType !== undefined ? { audienceType: data.audienceType ?? null } : {}),
+        /* ЭТАП 9: обновление бейджа автоматизации. */
+        ...(data.automationLevel !== undefined ? { automationLevel: data.automationLevel } : {}),
       },
       include: includeChannel,
     });

@@ -139,6 +139,9 @@ export const submissionMethodSchema = z.enum([
 export const confirmationStatusSchema = z.enum(["CONFIRMED", "REQUIRES_CHECK"]);
 export const audienceTypeSchema = z.enum(["B2B", "B2C", "REGIONAL", "GENERAL"]);
 
+/* ЭТАП 9: уровень автоматизации канала (AUTO/SEMI/MANUAL). */
+export const automationLevelSchema = z.enum(["AUTO", "SEMI", "MANUAL"]);
+
 /** Словарь тегов — единый источник в shared/channels.ts. */
 export const channelTagSchema = z.enum(CHANNEL_TAGS);
 
@@ -193,6 +196,9 @@ export const channelCreateSchema = z.object({
   confirmationStatus: confirmationStatusSchema.optional(),
   mirrorOf: z.string().trim().min(1).optional().nullable(),
   audienceType: audienceTypeSchema.optional().nullable(),
+  /* ЭТАП 9: уровень автоматизации (AUTO — фид/API, SEMI — вставка текста,
+   * MANUAL — только точка входа). */
+  automationLevel: automationLevelSchema.optional(),
 });
 
 export const channelUpdateSchema = channelCreateSchema.partial();
@@ -454,5 +460,31 @@ export const userProfileSchema = z
       .optional()
       .nullable(),
     dealTaxMode: dealTaxModeSchema.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Пустой запрос на обновление" });
+
+/* ЭТАП 9: Настройки → Авито API (PUT /api/avito/settings). */
+
+const avitoCredential = z
+  .string()
+  .trim()
+  .max(200, "До 200 символов");
+
+export const avitoSettingsSchema = z
+  .object({
+    clientId: avitoCredential.optional().nullable(),
+    clientSecret: avitoCredential.optional().nullable(),
+    userId: z
+      .string()
+      .trim()
+      .regex(/^\d{1,20}$/, "ID профиля Авито — число")
+      .optional()
+      .nullable(),
+    contactPhone: z
+      .string()
+      .trim()
+      .regex(/^\+?\d[\d()\s-]{6,19}$/, "Телефон в формате +7 …")
+      .optional()
+      .nullable(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Пустой запрос на обновление" });

@@ -8,9 +8,24 @@
  */
 
 import { positionName } from "./attributes";
-import type { ChannelType, CultureTemplateDTO, PositionDTO } from "./types";
+import type { AttributeField, AttributesMap, ChannelType } from "./types";
 
 export type ListingPlatform = "avito" | "telegram" | "agroserver";
+
+/* ЭТАП 9: источнику текста достаточно этих полей — фид собирает описание
+ * из узкой строки позиции без полного PositionDTO (структурная типизация:
+ * PositionDTO ложится сюда без изменений). */
+export interface ListingSource {
+  attributes: AttributesMap;
+  minLotKg: number;
+  bagWeightKg: number;
+  hasCertificate: boolean;
+}
+
+export interface ListingCultureSource {
+  name: string;
+  attributesSchema: AttributeField[];
+}
 
 export const LISTING_PLATFORMS: { id: ListingPlatform; label: string }[] = [
   { id: "avito", label: "Авито" },
@@ -25,7 +40,7 @@ export function listingPlatformForChannel(type: ChannelType): ListingPlatform {
   return "agroserver";
 }
 
-function attrLines(p: PositionDTO, culture: CultureTemplateDTO, skip: string[] = []): string[] {
+function attrLines(p: ListingSource, culture: ListingCultureSource, skip: string[] = []): string[] {
   return culture.attributesSchema
     .filter((f) => !skip.includes(f.key))
     .map((f) => {
@@ -38,8 +53,8 @@ function attrLines(p: PositionDTO, culture: CultureTemplateDTO, skip: string[] =
 }
 
 export function buildListing(
-  p: PositionDTO,
-  culture: CultureTemplateDTO,
+  p: ListingSource,
+  culture: ListingCultureSource,
   regionLabel: string,
   salePrice: number,
   platform: ListingPlatform,

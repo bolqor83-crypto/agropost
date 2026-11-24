@@ -151,6 +151,8 @@ export function mapChannel(row: ChannelRow): ChannelDTO {
     confirmationStatus: row.confirmationStatus,
     mirrorOf: row.mirrorOf,
     audienceType: row.audienceType,
+    /* ЭТАП 9: уровень автоматизации канала (бейдж мастера). */
+    automationLevel: row.automationLevel,
     listingCount: row._count.listings,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

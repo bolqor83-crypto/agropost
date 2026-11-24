@@ -7,6 +7,8 @@ import { DealsScreen } from "../routes/DealsScreen";
 import { InboxScreen } from "../routes/InboxScreen";
 import { TelegramBotScreen } from "../routes/TelegramBotScreen";
 import { MoreScreen } from "../routes/MoreScreen";
+import { SettingsScreen } from "../routes/SettingsScreen";
+import { AvitoApiScreen } from "../routes/AvitoApiScreen";
 import { AnalyticsScreen } from "../routes/AnalyticsScreen";
 import { ProfileScreen } from "../routes/ProfileScreen";
 import { SuppliersScreen } from "../routes/SuppliersScreen";
@@ -34,6 +36,8 @@ export const router = createBrowserRouter([
       { path: "inbox", element: <InboxScreen /> },
       { path: "telegram", element: <TelegramBotScreen /> },
       { path: "more", element: <MoreScreen /> },
+      { path: "settings", element: <SettingsScreen /> },
+      { path: "settings/avito", element: <AvitoApiScreen /> },
       { path: "analytics", element: <AnalyticsScreen /> },
       { path: "profile", element: <ProfileScreen /> },
       { path: "suppliers", element: <SuppliersScreen /> },

@@ -126,7 +126,7 @@ export function Card({
 
 /* ---------------- Чип ---------------- */
 
-type ChipTone = "neutral" | "green" | "warm" | "outline";
+type ChipTone = "neutral" | "green" | "warm" | "danger" | "outline";
 
 export function Chip({
   children,
@@ -141,6 +141,8 @@ export function Chip({
     neutral: "bg-subtle text-soft",
     green: "bg-accent-soft text-accent",
     warm: "bg-warm-soft text-warm",
+    /* ЭТАП 9: бейдж «Ручной» (НССиС) — красный, токен danger из globals.css. */
+    danger: "bg-danger-soft text-danger",
     outline: "bg-transparent text-soft border border-line",
   };
   return (

@@ -8,12 +8,14 @@ import { useState } from "react";
 import { CHANNEL_TAGS, CHANNEL_TAG_LABEL } from "@shared/channels";
 import {
   AUDIENCE_TYPE_LABEL,
+  AUTOMATION_LEVEL_LABEL,
   CHANNEL_TYPE_LABEL,
   CONFIRMATION_STATUS_LABEL,
   SUBMISSION_METHOD_LABEL,
 } from "@shared/labels";
 import type {
   AudienceType,
+  AutomationLevel,
   ChannelDTO,
   ChannelInput,
   ChannelTag,
@@ -46,6 +48,8 @@ const SUBMISSION_METHODS: SubmissionMethod[] = [
 ];
 const CONFIRMATION_STATUSES: ConfirmationStatus[] = ["CONFIRMED", "REQUIRES_CHECK"];
 const AUDIENCE_TYPES: AudienceType[] = ["B2B", "REGIONAL", "GENERAL", "B2C"];
+/* ЭТАП 9: уровни автоматизации (бейдж в мастере «Разместить»). */
+const AUTOMATION_LEVELS: AutomationLevel[] = ["AUTO", "SEMI", "MANUAL"];
 
 /** Пустая строка → undefined (поле не отправляется на сервер). */
 function toNum(s: string): number | undefined {
@@ -91,6 +95,10 @@ export function ChannelSheet({
   const [audienceType, setAudienceType] = useState<AudienceType | "NONE">(
     channel?.audienceType ?? "NONE",
   );
+  /* ЭТАП 9: уровень автоматизации канала. */
+  const [automationLevel, setAutomationLevel] = useState<AutomationLevel>(
+    channel?.automationLevel ?? "SEMI",
+  );
   const [saving, setSaving] = useState(false);
 
   const toggleTag = (tag: ChannelTag) => {
@@ -122,6 +130,8 @@ export function ChannelSheet({
       ...(frequencyLimit.trim() ? { frequencyLimit: frequencyLimit.trim() } : { frequencyLimit: null }),
       confirmationStatus,
       ...(audienceType !== "NONE" ? { audienceType } : { audienceType: null }),
+      /* ЭТАП 9: уровень автоматизации. */
+      automationLevel,
     };
     try {
       if (channel) {
@@ -244,6 +254,19 @@ export function ChannelSheet({
             onChange={(v) => setSubmissionMethod(v as SubmissionMethod)}
             options={SUBMISSION_METHODS.map((m) => ({ value: m, label: SUBMISSION_METHOD_LABEL[m] }))}
             ariaLabel="Способ подачи"
+          />
+        </Field>
+
+        {/* ЭТАП 9: бейдж автоматизации в мастере «Разместить». */}
+        <Field label="Автоматизация" hint="кто публикует">
+          <Select
+            value={automationLevel}
+            onChange={(v) => setAutomationLevel(v as AutomationLevel)}
+            options={AUTOMATION_LEVELS.map((l) => ({
+              value: l,
+              label: AUTOMATION_LEVEL_LABEL[l],
+            }))}
+            ariaLabel="Автоматизация"
           />
         </Field>
 

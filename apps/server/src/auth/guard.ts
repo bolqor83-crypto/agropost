@@ -25,7 +25,9 @@ export interface GuardDeps {
   trustedOrigins: Set<string>;
 }
 
-/** Публичные маршруты: без сессии. Webhook закрыт своим секретом. */
+/** Публичные маршруты: без сессии. Webhook закрыт своим секретом.
+ * ЭТАП 9: фиды площадок — публичные по токену FEED_TOKEN (проверяет
+ * сам маршрут: площадка дёргает XML по расписанию, сессии у неё нет). */
 export const PUBLIC_API_PATHS = new Set<string>([
   "/api/health",
   "/api/meta",
@@ -33,6 +35,8 @@ export const PUBLIC_API_PATHS = new Set<string>([
   "/api/auth/logout",
   "/api/auth/session",
   "/api/telegram/webhook",
+  "/api/feeds/yml",
+  "/api/feeds/avito",
 ]);
 
 const MUTATING = new Set(["POST", "PATCH", "PUT", "DELETE"]);

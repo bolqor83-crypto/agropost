@@ -101,12 +101,16 @@ async function main(): Promise<void> {
   }
   console.log(`  аккаунты: ${SEED_ACCOUNTS.length}`);
 
-  /* Каналы (этап 2.5: реальные из исследования + подача/профиль) — upsert по id.
-   * mirrorOf проставляем вторым проходом (self-FK: зеркальный канал уже создан). */
+  /* Каналы (этап 2.5: реальные из исследования + подача/профиль; этап 9 —
+   * площадки с автоматизацией: Зерно Он-Лайн, Своё Фермерство, Авито,
+   * Агросервер, НССиС) — upsert по id. mirrorOf проставляем вторым
+   * проходом (self-FK: зеркальный канал уже создан). */
   for (const channel of SEED_CHANNELS) {
     const { id, activityDaysAgo, mirrorOf, ...fields } = channel;
     const data = {
       ...fields,
+      /* ЭТАП 9: чужие каналы без уровня — SEMI (текст готовит приложение). */
+      automationLevel: channel.automationLevel ?? "SEMI",
       lastActivityAt: activityDaysAgo !== null ? daysAgo(activityDaysAgo) : null,
     };
     await prisma.channel.upsert({ where: { id }, create: { id, ...data }, update: data });

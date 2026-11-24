@@ -174,6 +174,12 @@ export type ChannelType =
 /** Словарь тегов каналов — константа CHANNEL_TAGS в shared/channels.ts. */
 export type ChannelTag = "SEEDS" | "NUT" | "LIVESTOCK" | "WHOLESALE" | "GENERAL";
 
+/* ЭТАП 9: уровень автоматизации публикации в канал.
+ * - AUTO — площадка обновляет сама (YML-фид, Авито API, свой бот-админ);
+ * - SEMI — приложение готовит текст, пользователь вставляет (чужие чаты, Агросервер);
+ * - MANUAL — только точка входа (НССиС — deep link). */
+export type AutomationLevel = "AUTO" | "SEMI" | "MANUAL";
+
 export type AccountPlatform = "TELEGRAM" | "AVITO" | "MAX" | "YOULA" | "OTHER";
 export type AccountStatus = "ACTIVE" | "LIMITED" | "PAUSED" | "BLOCKED";
 export type ListingStatus = "DRAFT" | "COPIED" | "PUBLISHED";
@@ -225,6 +231,8 @@ export interface ChannelDTO {
   mirrorOf: string | null;
   /** Профиль аудитории: агро-чат (B2B) или барахолка (REGIONAL/GENERAL). */
   audienceType: AudienceType | null;
+  /* ЭТАП 9: уровень автоматизации (бейдж в мастере «Разместить»). */
+  automationLevel: AutomationLevel;
   listingCount: number;
   createdAt: string;
   updatedAt: string;
@@ -286,6 +294,8 @@ export interface ChannelInput {
   /** Id канала-зеркала (TG↔MAX). */
   mirrorOf?: string | null;
   audienceType?: AudienceType | null;
+  /* ЭТАП 9: уровень автоматизации канала. */
+  automationLevel?: AutomationLevel;
 }
 
 export interface AccountInput {
@@ -456,6 +466,93 @@ export interface TelegramPublishDTO {
   url: string | null;
   publishedAt: string;
   warning?: string;
+}
+
+/* ---------- ЭТАП 9: автоматизация публикации ---------- */
+
+/** Ответ GET /api/feeds/info — адреса фидов для подключения площадок. */
+export interface FeedsInfoDTO {
+  ok: true;
+  /** Фиды настроены (FEED_TOKEN задан) — адреса можно отдавать площадкам. */
+  configured: boolean;
+  yml: string | null;
+  avito: string | null;
+  /** Позиций сейчас в фиде (IN_STOCK). */
+  offers: number;
+}
+
+/** Ответ GET /api/avito/status. */
+export interface AvitoStatusDTO {
+  ok: true;
+  /** Клиент Авито API настроен (env или Настройки → Авито API). */
+  configured: boolean;
+  /** Откуда взята конфигурация: env имеет приоритет над настройками. */
+  configuredFrom: "env" | "settings" | "none";
+  /** ID профиля Авито (env AVITO_USER_ID или настройки). */
+  userId: string | null;
+  /** Телефон для объявлений (ContactPhone в XML). */
+  contactPhone: string | null;
+  /** Адрес Авито-фида для Автозагрузки. */
+  feedUrl: string | null;
+}
+
+/** GET /api/avito/settings — секрет маскируется. */
+export interface AvitoSettingsDTO {
+  clientId: string | null;
+  /** Маскированный секрет — только признак «задан». */
+  clientSecretSet: boolean;
+  userId: string | null;
+  contactPhone: string | null;
+  /** true — данные заданы через env и в UI недоступны для правки. */
+  fromEnv: boolean;
+}
+
+/** PUT /api/avito/settings. */
+export interface AvitoSettingsInput {
+  clientId?: string | null;
+  clientSecret?: string | null;
+  userId?: string | null;
+  contactPhone?: string | null;
+}
+
+/** Ответ POST /api/avito/check — «Проверить подключение». */
+export interface AvitoCheckDTO {
+  ok: true;
+  /** OAuth-токен получен. */
+  tokenOk: boolean;
+  /** Ответ площадки о текущей автозагрузке (если API доступен). */
+  uploadStatus: string | null;
+  /** Человеческая причина ошибки (401 — неверные ключи и т.п.). */
+  error?: string;
+}
+
+/** Ответ POST /api/avito/dry-run — превью перед отправкой. */
+export interface AvitoDryRunDTO {
+  ok: true;
+  /** Полный XML Автозагрузки (Ads formatVersion=3). */
+  xml: string;
+  /** Объявлений в фиде (все IN_STOCK позиции — Авито обновит все). */
+  offers: number;
+  /** Локальная валидация XML прошла. */
+  valid: boolean;
+  /** Замечания локального валидатора (телефон не задан, категория и т.п.). */
+  warnings: string[];
+  /** Удалённая валидация Авито (POST /autoload/v2/validate) — если доступна. */
+  remote: "passed" | "unavailable" | "failed";
+  remoteErrors?: string[];
+}
+
+/** Ответ POST /api/avito/publish. */
+export interface AvitoPublishDTO {
+  ok: true;
+  /** Фид передан Авито (загрузка по ссылке). */
+  uploaded: boolean;
+  /** Адрес фида, который забрал Авито. */
+  feedUrl: string;
+  offers: number;
+  publishedAt: string;
+  /** Статус обработки на стороне Авито (id загрузки/текущее состояние). */
+  uploadStatus: string | null;
 }
 
 /** PATCH /api/leads/:id — статус, заметка, интерес, позиция. */

@@ -15,6 +15,11 @@
   --color-accent-soft: #E6F0EA;
   --color-warm: #D98E5F;
   --color-warm-soft: #F7EBDF;
+  /* ЭТАП 9: бейдж «Ручной» (НССиС) и ошибки валидации — по логике
+     существующей пары warm/warm-soft, отдельного красного в палитре
+     не было. */
+  --color-danger: #B5473C;
+  --color-danger-soft: #F5E4E1;
   --color-line: #EAE5DE;
 
   --font-sans: "Manrope Variable", "Manrope", system-ui, -apple-system, sans-serif;
@@ -106,6 +111,8 @@ html.dark {
   --color-accent-soft: #2E3B34;
   --color-warm: #E2A173;
   --color-warm-soft: #3A2E24;
+  --color-danger: #D0776B;
+  --color-danger-soft: #3A2320;
   --color-line: #3B3733;
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
 

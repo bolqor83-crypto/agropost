@@ -5,6 +5,7 @@
 import type {
   AccountPlatform,
   AccountStatus,
+  AutomationLevel,
   ChannelType,
   CultureType,
   ListingStatus,
@@ -104,6 +105,13 @@ export const SUBMISSION_METHOD_LABEL: Record<SubmissionMethod, string> = {
   SITE_FORM: "форма сайта",
   CABINET: "личный кабинет",
   NONE: "не указан",
+};
+
+/* ЭТАП 9: уровень автоматизации канала (бейджи в мастере «Разместить»). */
+export const AUTOMATION_LEVEL_LABEL: Record<AutomationLevel, string> = {
+  AUTO: "Авто",
+  SEMI: "Полуавто",
+  MANUAL: "Ручной",
 };
 
 export const CONFIRMATION_STATUS_LABEL: Record<ConfirmationStatus, string> = {

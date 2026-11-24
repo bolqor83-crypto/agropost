@@ -24,6 +24,12 @@ import type {
   AnalyticsPeriod,
   AnalyticsPositionsDTO,
   AnalyticsSummaryDTO,
+  AvitoCheckDTO,
+  AvitoDryRunDTO,
+  AvitoPublishDTO,
+  AvitoSettingsDTO,
+  AvitoSettingsInput,
+  AvitoStatusDTO,
   CarrierDTO,
   CarrierInput,
   ChannelDTO,
@@ -43,6 +49,7 @@ import type {
   DeliveryCalculateDTO,
   DocumentDTO,
   DocumentType,
+  FeedsInfoDTO,
   LeadDetailDTO,
   LeadDTO,
   LeadDraftDTO,
@@ -467,6 +474,46 @@ export function publishViaBot(
     method: "POST",
     body: JSON.stringify({ listingId, ...(confirm ? { confirm: true } : {}) }),
   });
+}
+
+/* ---------- ЭТАП 9: фиды площадок и Авито API ---------- */
+
+/** Адреса фидов для кабинетов площадок (Зерно Он-Лайн, Своё Фермерство). */
+export function getFeedsInfo(): Promise<FeedsInfoDTO> {
+  return request<FeedsInfoDTO>("/feeds/info");
+}
+
+/** Статус Авито API: настроен ли клиент, id профиля, адрес фида. */
+export function getAvitoStatus(): Promise<AvitoStatusDTO> {
+  return request<AvitoStatusDTO>("/avito/status");
+}
+
+/** Настройки Авито API (секрет маскирован; env — только чтение). */
+export function getAvitoSettings(): Promise<AvitoSettingsDTO> {
+  return request<AvitoSettingsDTO>("/avito/settings");
+}
+
+/** Сохранение ключей Авито API (client_id/secret/user_id/телефон). */
+export function saveAvitoSettings(input: AvitoSettingsInput): Promise<AvitoSettingsDTO> {
+  return request<AvitoSettingsDTO>("/avito/settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+/** «Проверить подключение»: OAuth-токен + состояние автозагрузки. */
+export function checkAvitoConnection(): Promise<AvitoCheckDTO> {
+  return request<AvitoCheckDTO>("/avito/check", { method: "POST", body: JSON.stringify({}) });
+}
+
+/** Dry-run: превью XML Автозагрузки + валидация (до подтверждения). */
+export function avitoDryRun(): Promise<AvitoDryRunDTO> {
+  return request<AvitoDryRunDTO>("/avito/dry-run", { method: "POST", body: JSON.stringify({}) });
+}
+
+/** Публикация на Авито (после подтверждения превью): upload фида. */
+export function avitoPublish(): Promise<AvitoPublishDTO> {
+  return request<AvitoPublishDTO>("/avito/publish", { method: "POST", body: JSON.stringify({}) });
 }
 
 /* ---------- Этап 3.0: AI-слой (5 use cases) ---------- */

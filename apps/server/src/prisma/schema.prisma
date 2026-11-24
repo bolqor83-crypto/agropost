@@ -103,6 +103,16 @@ enum AudienceType {
   GENERAL
 }
 
+/* ЭТАП 9: уровень автоматизации публикации в канал.
+   AUTO — фид/API обновляют объявления сами (YML-площадки, Авито API,
+   свой бот-админ); SEMI — приложение готовит текст, пользователь вставляет
+   (чужие чаты, Агросервер); MANUAL — только точка входа (НССиС). */
+enum AutomationLevel {
+  AUTO
+  SEMI
+  MANUAL
+}
+
 /* Этап 2.5 (парсер): источник собранной цены. */
 
 enum PriceSource {
@@ -277,6 +287,8 @@ model Channel {
   mirrorOf           String?
   /// Профиль аудитории: агро-чат (B2B) или барахолка (REGIONAL).
   audienceType       AudienceType?
+  /* ЭТАП 9: бейдж автоматизации в мастере «Разместить». */
+  automationLevel    AutomationLevel @default(SEMI)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   listings         Listing[]
@@ -295,6 +307,19 @@ model Channel {
   @@index([submissionMethod])
   @@index([audienceType])
   @@index([mirrorOf])
+  @@index([automationLevel])
+}
+
+/* ЭТАП 9: ключ-значение настроек приложения (ключи Авито API, если их
+   задали через UI, а не env; env имеет приоритет над БД). */
+model AppSetting {
+  id        String   @id @default(cuid())
+  /// Ключ секции: "avito" — ключи клиента Авито API.
+  key       String   @unique
+  /// Значение секции (JSONB): {clientId, clientSecret, userId, phone}.
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Listing {

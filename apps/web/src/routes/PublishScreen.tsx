@@ -19,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Upload,
   Zap,
 } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
@@ -26,6 +27,7 @@ import { listingPlatformForChannel } from "@shared/listing-text";
 import { CHANNEL_TAG_LABEL, submissionTarget } from "@shared/channels";
 import { CHANNEL_TYPE_LABEL, LISTING_STATUS_LABEL, SUBMISSION_METHOD_LABEL } from "@shared/labels";
 import type {
+  AvitoStatusDTO,
   ChannelDTO,
   ListingDTO,
   PositionDTO,
@@ -36,6 +38,7 @@ import type {
 import type { AiListingData, AiMeta } from "@shared/ai";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
+import { automationBadge, AVITO_FLOW_INITIAL, avitoButtonLabel, isAvitoChannel, type AvitoFlowState } from "../lib/automation";
 import { CHANNEL_ICON } from "../features/channels/icons";
 import { useActivityStore, usePublishStore, useToastStore } from "../stores/publish";
 import { useCatalog } from "../stores/catalog";
@@ -139,6 +142,15 @@ function ChannelPickCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="min-w-0 truncate text-[14px] font-semibold text-ink">{c.name}</p>
+          {/* ЭТАП 9: бейдж автоматизации — Авто (фид/API) / Полуавто / Ручной. */}
+          {(() => {
+            const badge = automationBadge(c.automationLevel);
+            return (
+              <Chip tone={badge.tone} className="shrink-0">
+                {badge.label}
+              </Chip>
+            );
+          })()}
           {c.cooldown && (
             <Chip tone="warm" className="shrink-0">
               ⏳ {c.daysSince} дн
@@ -284,12 +296,20 @@ export function PublishScreen() {
   const [publishing, setPublishing] = useState<Record<string, boolean>>({});
   const [confirm24h, setConfirm24h] = useState<Record<string, boolean>>({});
 
+  /* ЭТАП 9: Авито API — статус ключей + флоу dry-run → превью → подтверждение. */
+  const [avitoStatus, setAvitoStatus] = useState<AvitoStatusDTO | null>(null);
+  const [avitoFlow, setAvitoFlow] = useState<Record<string, AvitoFlowState>>({});
+
   useEffect(() => {
     if (step !== 3) return;
     api
       .getTelegramStatus()
       .then(setBotStatus)
       .catch(() => setBotStatus(null));
+    api
+      .getAvitoStatus()
+      .then(setAvitoStatus)
+      .catch(() => setAvitoStatus(null));
   }, [step]);
 
   useEffect(() => {
@@ -451,6 +471,62 @@ export function PublishScreen() {
       }
     } finally {
       setPublishing((s) => ({ ...s, [channelId]: false }));
+    }
+  };
+
+  /* ---------- ЭТАП 9: публикация на Авито через официальный API ---------- */
+
+  /* Шаг 1 флоу: dry-run — сервер собирает XML и валидирует его. */
+  const runAvitoDryRun = async (channelId: string) => {
+    if (avitoFlow[channelId]?.step === "dry-run") return;
+    setAvitoFlow((s) => ({ ...s, [channelId]: { ...AVITO_FLOW_INITIAL, step: "dry-run" } }));
+    try {
+      const res = await api.avitoDryRun();
+      setAvitoFlow((s) => ({
+        ...s,
+        [channelId]: {
+          step: "preview",
+          xml: res.xml,
+          offers: res.offers,
+          valid: res.valid,
+          warnings: res.warnings,
+          error: null,
+        },
+      }));
+    } catch (err) {
+      setAvitoFlow((s) => ({
+        ...s,
+        [channelId]: {
+          ...AVITO_FLOW_INITIAL,
+          error: err instanceof Error ? err.message : "Не удалось проверить XML",
+        },
+      }));
+      showToast(err instanceof Error ? err.message : "Авито API недоступен");
+    }
+  };
+
+  /* Шаг 2: подтверждение — отправка фида Автозагрузке. */
+  const confirmAvitoPublish = async (channelId: string) => {
+    const flow = avitoFlow[channelId];
+    if (!flow || flow.step !== "preview") return;
+    setAvitoFlow((s) => ({ ...s, [channelId]: { ...flow, step: "publishing" } }));
+    try {
+      const res = await api.avitoPublish();
+      setAvitoFlow((s) => ({
+        ...s,
+        [channelId]: { ...flow, step: "done" },
+      }));
+      void markListing(channelId, "PUBLISHED");
+      showToast(
+        `Авито забрал фид (${res.offers} объявл.) — обновление занимает несколько минут`,
+        "success",
+      );
+    } catch (err) {
+      setAvitoFlow((s) => ({
+        ...s,
+        [channelId]: { ...flow, step: "preview", error: null },
+      }));
+      showToast(err instanceof Error ? err.message : "Не удалось отправить фид");
     }
   };
 
@@ -770,6 +846,11 @@ export function PublishScreen() {
                           <CheckCircle2 size={15} />
                           Размещено
                         </div>
+                      ) : isAvitoChannel(ch) && avitoStatus?.configured ? (
+                        /* ЭТАП 9: Авито — своя полноширинная кнопка под строкой
+                         * (dry-run → превью → подтверждение), не теснится
+                         * рядом со ссылкой подачи. */
+                        <span className="flex-1" aria-hidden />
                       ) : botEligible(ch ?? draft.channel) ? (
                         <Btn
                           full
@@ -812,6 +893,88 @@ export function PublishScreen() {
                       Бот — админ канала: опубликует сам и вернёт ссылку на пост
                     </p>
                   )}
+
+                  {/* ЭТАП 9 (Авито): ключи не заданы — честный warning,
+                   * публикация вручную, приложение работает как раньше. */}
+                  {isAvitoChannel(ch) && avitoStatus !== null && !avitoStatus.configured && (
+                    <div className="mt-2 rounded-[14px] bg-warm-soft px-3.5 py-3">
+                      <p className="text-[12px] font-semibold text-warm">
+                        Авито API не настроен
+                      </p>
+                      <p className="mt-0.5 text-[11.5px] font-medium leading-relaxed text-soft">
+                        Подключите ключи в «Ещё» → «Настройки» → «Авито API» — и публикация
+                        станет автоматической. Пока размещайте вручную: скопируйте текст
+                        и вставьте на Авито.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* ЭТАП 9 (Авито): кнопка официального API — полноширинная
+                   * строка под кнопками копирования/перехода: dry-run →
+                   * превью XML → подтверждение → Автозагрузка по ссылке. */}
+                  {isAvitoChannel(ch) && avitoStatus?.configured && !published && (
+                    <Btn
+                      full
+                      className="mt-2"
+                      onClick={() =>
+                        void ((avitoFlow[id]?.step ?? "idle") === "preview"
+                          ? confirmAvitoPublish(id)
+                          : runAvitoDryRun(id))
+                      }
+                      disabled={
+                        (avitoFlow[id]?.step ?? "idle") === "dry-run" ||
+                        (avitoFlow[id]?.step ?? "idle") === "publishing" ||
+                        (avitoFlow[id]?.step ?? "idle") === "done" ||
+                        ((avitoFlow[id]?.step ?? "idle") === "preview" &&
+                          avitoFlow[id]?.valid === false)
+                      }
+                      loading={
+                        (avitoFlow[id]?.step ?? "idle") === "dry-run" ||
+                        (avitoFlow[id]?.step ?? "idle") === "publishing"
+                      }
+                      ariaLabel="Опубликовать на Авито"
+                    >
+                      <Upload size={15} />
+                      {avitoButtonLabel(avitoFlow[id]?.step ?? "idle")}
+                    </Btn>
+                  )}
+
+                  {/* ЭТАП 9 (Авито): превью dry-run — XML перед отправкой. */}
+                  {isAvitoChannel(ch) &&
+                    (() => {
+                      const flow = avitoFlow[id] ?? AVITO_FLOW_INITIAL;
+                      if (flow.step !== "preview" && flow.step !== "publishing" && flow.step !== "done") return null;
+                      return (
+                        <div className="mt-2 rounded-[14px] bg-subtle px-3.5 py-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-ink">
+                              Превью фида: {flow.offers} объявл.
+                            </p>
+                            <Chip tone={flow.valid ? "green" : "danger"}>
+                              {flow.valid ? "XML валиден" : "есть замечания"}
+                            </Chip>
+                          </div>
+                          {flow.warnings.length > 0 && (
+                            <ul className="mt-1.5 flex list-disc flex-col gap-0.5 pl-4">
+                              {flow.warnings.slice(0, 4).map((w) => (
+                                <li key={w} className="text-[11.5px] font-medium leading-snug text-soft">
+                                  {w}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <pre className="mt-2 max-h-[180px] overflow-auto rounded-[10px] bg-surface px-3 py-2 text-[10px] leading-relaxed text-soft">
+                            {flow.xml?.slice(0, 4000)}
+                            {(flow.xml?.length ?? 0) > 4000 ? "\n…" : ""}
+                          </pre>
+                          <p className="mt-1 text-[11px] font-medium text-soft">
+                            {flow.step === "done"
+                              ? "Фид отправлен — Авито обновит объявления за несколько минут"
+                              : "Авито обновит ВСЕ объявления по фиду (Автозагрузка синхронизирует каталог)"}
+                          </p>
+                        </div>
+                      );
+                    })()}
                 </Card>
               );
             })}

@@ -12,6 +12,7 @@ import type {
   AccountStatus,
   AudienceType,
   AttributeField,
+  AutomationLevel,
   ChannelTag,
   ChannelType,
   ConfirmationStatus,
@@ -393,6 +394,10 @@ export interface SeedChannel {
   mirrorOf?: string | null;
   /** Профиль аудитории: B2B / B2C / REGIONAL / GENERAL. */
   audienceType: AudienceType | null;
+  /* ЭТАП 9: уровень автоматизации (AUTO — фид/API обновляют сами,
+   * SEMI — приложение готовит текст, пользователь вставляет,
+   * MANUAL — только точка входа). Не указан — SEMI (чужой канал). */
+  automationLevel?: AutomationLevel;
 }
 
 export const SEED_CHANNELS: SeedChannel[] = [
@@ -750,6 +755,107 @@ export const SEED_CHANNELS: SeedChannel[] = [
     submissionMethod: "ADMIN_CONTACT",
     confirmationStatus: "CONFIRMED",
     audienceType: "B2B",
+  },
+  /* ---------- ЭТАП 9: площадки с автоматизацией публикации ---------- */
+  {
+    id: "ch-zol",
+    name: "Зерно Он-Лайн",
+    type: "OTHER",
+    url: "https://zol.ru",
+    region: "Федеральный",
+    city: null,
+    tags: ["SEEDS", "WHOLESALE"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: 0,
+    accountId: null,
+    notes:
+      "Зерновая доска объявлений (zol.ru). Автообновление объявлений по YML-фиду: " +
+      "ссылку фида вставьте в личный кабинет площадки один раз (Настройки → Фиды).",
+    submissionMethod: "CABINET",
+    confirmationStatus: "CONFIRMED",
+    audienceType: "B2B",
+    automationLevel: "AUTO",
+  },
+  {
+    id: "ch-svoe-fermerstvo",
+    name: "Своё Фермерство",
+    type: "OTHER",
+    url: "https://svoefermerstvo.ru",
+    region: "Федеральный",
+    city: null,
+    tags: ["SEEDS", "NUT", "WHOLESALE"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: 0,
+    accountId: null,
+    notes:
+      "Маркетплейс Россельхозбанка (svoefermerstvo.ru). Автообновление по YML-фиду: " +
+      "ссылку фида добавьте в кабинет площадки (Настройки → Фиды).",
+    submissionMethod: "CABINET",
+    confirmationStatus: "CONFIRMED",
+    audienceType: "B2B",
+    automationLevel: "AUTO",
+  },
+  {
+    id: "ch-avito",
+    name: "Авито",
+    type: "AVITO",
+    url: "https://www.avito.ru",
+    region: "Федеральный",
+    city: null,
+    tags: ["SEEDS", "NUT", "GENERAL"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: 0,
+    accountId: null,
+    notes:
+      "Автозагрузка через официальный API: dry-run с превью XML и подтверждением — " +
+      "кнопка «Опубликовать на Авито» в мастере «Разместить». Ключи — «Ещё» → «Настройки» → «Авито API».",
+    submissionMethod: "CABINET",
+    confirmationStatus: "CONFIRMED",
+    audienceType: "GENERAL",
+    automationLevel: "AUTO",
+  },
+  {
+    id: "ch-agroserver",
+    name: "Агросервер",
+    type: "AGROSERVER",
+    url: "https://agroserver.ru",
+    region: "Федеральный",
+    city: null,
+    tags: ["SEEDS", "NUT", "WHOLESALE"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: 0,
+    accountId: null,
+    notes:
+      "Доска агрообъявлений. Полуавто: приложение готовит текст — вставляете " +
+      "в форму подачи площадки (агро-аудитория для семян и ореха).",
+    submissionMethod: "SITE_FORM",
+    confirmationStatus: "CONFIRMED",
+    audienceType: "B2B",
+    automationLevel: "SEMI",
+  },
+  {
+    id: "ch-ncsis",
+    name: "НССиС — торговая площадка",
+    type: "OTHER",
+    url: "https://www.nsss-russia.ru",
+    region: "Федеральный",
+    city: null,
+    tags: ["SEEDS"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: null,
+    accountId: null,
+    notes:
+      "Торговая площадка Национального союза селекционеров и семеноводов. " +
+      "Ручной режим: только точка входа, объявление публикуется вручную.",
+    submissionMethod: "SITE_FORM",
+    confirmationStatus: "REQUIRES_CHECK",
+    audienceType: "B2B",
+    automationLevel: "MANUAL",
   },
 ];
 

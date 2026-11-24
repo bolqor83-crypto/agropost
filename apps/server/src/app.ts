@@ -40,8 +40,11 @@ import { dealsRoutes } from "./routes/deals.js";
 import { claimsRoutes } from "./routes/claims.js";
 import { carrierRoutes } from "./routes/carriers.js";
 import { analyticsRoutes } from "./routes/analytics.js";
+import { feedRoutes } from "./feeds/routes.js";
+import { avitoRoutes } from "./publishers/avito/routes.js";
 import { getTelegram } from "./telegram/index.js";
 import { getStorage } from "./storage/factory.js";
+import { readFeedToken } from "./feeds/config.js";
 
 export interface BuildAppOptions {
   /**
@@ -67,6 +70,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     app.log.warn(
       "R2 не настроен — файлы хранятся в базе (base64). Приложение работает; " +
         "для фото/документов в объектном хранилище задайте R2_* переменные (README «Как настроить R2»)",
+    );
+  }
+
+  /* ЭТАП 9: фиды площадок (Зерно Он-Лайн, Своё Фермерство, Авито)
+     отключены без токена — честно предупредить, как с R2. */
+  if (!readFeedToken()) {
+    app.log.warn(
+      "FEED_TOKEN не задан — фиды площадок отключены (/api/feeds/* отвечает 403). " +
+        "Сгенерируйте токен (openssl rand -hex 16) и задайте его в env — см. README «Как подключить YML-фид»",
     );
   }
 
@@ -144,6 +156,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(claimsRoutes);
   await app.register(carrierRoutes);
   await app.register(analyticsRoutes);
+
+  /* ЭТАП 9: YML/Авито-фиды (публичные по токену) + API Авито. */
+  await app.register(feedRoutes);
+  await app.register(avitoRoutes);
 
   /* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
   const telegram = getTelegram();

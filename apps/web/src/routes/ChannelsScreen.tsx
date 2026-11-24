@@ -30,6 +30,7 @@ import type { ChannelDTO, ChannelTag } from "@shared/types";
 import * as api from "../api/client";
 import { CHANNEL_ICON } from "../features/channels/icons";
 import { fmtNum } from "../lib/format";
+import { automationBadge } from "../lib/automation";
 import { useChannels } from "../stores/channels";
 import { useToastStore } from "../stores/publish";
 import {
@@ -118,6 +119,15 @@ function ChannelCard({
             {c.averageReach != null ? ` · ${fmtNum(c.averageReach)} охват` : ""}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {/* ЭТАП 9: уровень автоматизации — Авто/Полуавто/Ручной. */}
+            {(() => {
+              const badge = automationBadge(c.automationLevel);
+              return (
+                <Chip tone={badge.tone}>
+                  {badge.label}
+                </Chip>
+              );
+            })()}
             {c.tags.map((t) => (
               <Chip key={t} tone="outline">
                 {CHANNEL_TAG_LABEL[t]}
