@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   Copy,
   ExternalLink,
+  Lightbulb,
   MapPin,
   Send,
   ShieldCheck,
@@ -39,6 +40,7 @@ import { CHANNEL_ICON } from "../features/channels/icons";
 import { useActivityStore, usePublishStore, useToastStore } from "../stores/publish";
 import { useCatalog } from "../stores/catalog";
 import { useChannels } from "../stores/channels";
+import { dismissTip, shouldShowGeoRotationTip, tipDismissed } from "../lib/tips";
 import { Btn, Card, Chip, EmptyState, InfoRow, ScreenHeader, SectionTitle, Skeleton, TextArea } from "../components/ui";
 
 function StepBar({ step, onStep }: { step: 1 | 2 | 3 | 4; onStep: (s: 1 | 2 | 3 | 4) => void }) {
@@ -220,6 +222,29 @@ function RotationWidget({ rotation }: { rotation: RotationDTO }) {
 /** Черновик по каналу: listing | "pending" | "failed". */
 type DraftState = Record<string, ListingDTO | "pending" | "failed">;
 
+/** ЭТАП 7: совет про гео-ротацию в шаге «Каналы» — один раз, мягко. */
+function GeoRotationTip({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <Card className="flex items-start gap-3 p-4">
+      <Lightbulb size={18} className="mt-0.5 shrink-0 text-accent" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-ink">Совет</p>
+        <p className="mt-0.5 text-[12px] font-medium leading-relaxed text-soft">
+          Используйте гео-ротацию — размещайтесь по городам региона,
+          чтобы не спамить в один канал и не попасть под бан
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="press mt-1 text-[12px] font-semibold text-accent"
+        >
+          Понятно
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 function isListing(d: ListingDTO | "pending" | "failed" | undefined): d is ListingDTO {
   return Boolean(d) && typeof d === "object";
 }
@@ -237,6 +262,9 @@ export function PublishScreen() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [drafts, setDrafts] = useState<DraftState>({});
+
+  /* ЭТАП 7: совет про гео-ротацию — один раз, закрывается навсегда. */
+  const [geoTipDismissed, setGeoTipDismissed] = useState(() => tipDismissed("geo-rotation"));
 
   /* Этап 3.0: AI-текст по каждому каналу. Пока AI думает — skeleton;
    * при ошибке остаётся шаблон и мягкий тост. */
@@ -520,6 +548,17 @@ export function PublishScreen() {
           {rotation && (
             <div className="mb-3">
               <RotationWidget rotation={rotation} />
+            </div>
+          )}
+          {/* ЭТАП 7: совет про гео-ротацию — мягкий, один раз. */}
+          {shouldShowGeoRotationTip(geoTipDismissed) && (
+            <div className="mb-3">
+              <GeoRotationTip
+                onDismiss={() => {
+                  dismissTip("geo-rotation");
+                  setGeoTipDismissed(true);
+                }}
+              />
             </div>
           )}
           {suggestLoading ? (

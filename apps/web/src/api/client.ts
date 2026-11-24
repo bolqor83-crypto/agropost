@@ -295,6 +295,8 @@ export interface MetaDTO {
   name: string;
   version: string;
   stage: number;
+  /** ЭТАП 7: дата релиза для раздела «Версия и обновления». */
+  releasedAt?: string;
   stages: Record<string, boolean>;
   /** ЭТАП 6: режим файлового хранилища (base64 | r2). */
   storage: { mode: "base64" | "r2" };

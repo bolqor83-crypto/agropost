@@ -11,7 +11,9 @@ import {
   Bot,
   Check,
   ChevronRight,
+  Copy,
   FileText,
+  Github,
   IdCard,
   Inbox,
   ListChecks,
@@ -28,10 +30,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import type { ReadinessDTO } from "@shared/types";
+import type { MetaDTO } from "../api/client";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
 import { resetAllStores } from "../lib/logout";
-import { Card, Chip, ScreenHeader, Skeleton } from "../components/ui";
+import { buildLaunchPlan, copyText } from "../lib/tips";
+import { Btn, Card, Chip, ScreenHeader, Skeleton } from "../components/ui";
 
 const SECTIONS: {
   icon: typeof Users;
@@ -55,8 +59,9 @@ const SECTIONS: {
   { icon: Bot, name: "«Что сделать сейчас?»", stage: "этап 5", hint: "Кнопка на Пульте: лиды, сделки, публикации" },
 ];
 
-/** Чек-лист «Перед запуском»: прогресс и пункты с галочками. */
+/** Чек-лист «Перед запуском»: прогресс, пункты и кнопка «Скопировать инструкцию». */
 function ReadinessCard({ onNavigate }: { onNavigate: (to: string) => void }) {
+  const showToast = useToastStore((s) => s.show);
   const [data, setData] = useState<ReadinessDTO | null>(null);
 
   useEffect(() => {
@@ -74,6 +79,15 @@ function ReadinessCard({ onNavigate }: { onNavigate: (to: string) => void }) {
     bot: "/telegram",
     ai: "/more",
     r2: "/more",
+  };
+
+  /* ЭТАП 7: пошаговый план запуска — в буфер обмена (отправить помощнику
+     или сохранить). Мягкий тост при успехе, честный — при отказе. */
+  const copyInstruction = async () => {
+    if (!data) return;
+    const text = buildLaunchPlan(data);
+    const ok = await copyText(text);
+    showToast(ok ? "Инструкция скопирована — можно вставить в чат или заметки" : "Не удалось скопировать — попробуйте ещё раз");
   };
 
   return (
@@ -132,6 +146,83 @@ function ReadinessCard({ onNavigate }: { onNavigate: (to: string) => void }) {
           ))}
         </div>
       )}
+
+      {/* ЭТАП 7: «Скопировать инструкцию» — план запуска в буфер обмена. */}
+      {data !== null && (
+        <div className="mt-3">
+          <Btn full variant="secondary" onClick={() => void copyInstruction()}>
+            <Copy size={15} />
+            Скопировать инструкцию
+          </Btn>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ---------- ЭТАП 7: «Версия и обновления» — текущая версия и ссылки. ---------- */
+
+const GITHUB_URL = "https://github.com/bolqor83-crypto/agropost";
+const README_URL = `${GITHUB_URL}#readme`;
+const USER_GUIDE_URL = `${GITHUB_URL}/blob/main/docs/USER_GUIDE.md`;
+
+function formatReleaseDate(iso: string | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(d);
+}
+
+function VersionCard({ meta }: { meta: MetaDTO | null }) {
+  return (
+    <Card className="mt-4 p-4">
+      <div className="flex items-center gap-2">
+        <Sprout size={16} className="text-accent" />
+        <p className="text-[15px] font-semibold text-ink">Версия и обновления</p>
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-[14px] font-semibold text-ink">
+          АгроПост {meta?.version ?? "—"}
+        </span>
+        <span className="text-[12px] font-medium text-soft">
+          обновление от {formatReleaseDate(meta?.releasedAt)}
+        </span>
+      </div>
+      {meta && (
+        <p className="mt-1 text-[12px] font-medium text-soft">
+          Финальный этап — приложение готово к работе. Обновления — из того же
+          репозитория GitHub.
+        </p>
+      )}
+      <div className="mt-3 flex flex-col gap-2">
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="press flex items-center gap-2 rounded-[14px] border border-line bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink"
+        >
+          <Github size={15} className="text-soft" />
+          Репозиторий на GitHub
+        </a>
+        <a
+          href={README_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="press flex items-center gap-2 rounded-[14px] border border-line bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink"
+        >
+          <FileText size={15} className="text-soft" />
+          Инструкция (README)
+        </a>
+        <a
+          href={USER_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="press flex items-center gap-2 rounded-[14px] border border-line bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink"
+        >
+          <IdCard size={15} className="text-soft" />
+          Полное руководство пользователя
+        </a>
+      </div>
     </Card>
   );
 }
@@ -139,6 +230,15 @@ function ReadinessCard({ onNavigate }: { onNavigate: (to: string) => void }) {
 export function MoreScreen() {
   const navigate = useNavigate();
   const showToast = useToastStore((s) => s.show);
+  /* ЭТАП 7: версия и дата обновления — из /api/meta. */
+  const [meta, setMeta] = useState<MetaDTO | null>(null);
+
+  useEffect(() => {
+    api
+      .getMeta()
+      .then(setMeta)
+      .catch(() => setMeta(null));
+  }, []);
 
   return (
     <div className="screen-rise">
@@ -175,6 +275,9 @@ export function MoreScreen() {
 
         {/* Этап 5: чек-лист «Перед запуском» — что заполнить перед работой. */}
         <ReadinessCard onNavigate={(to) => navigate(to)} />
+
+        {/* ЭТАП 7: версия и обновления — из /api/meta. */}
+        <VersionCard meta={meta} />
 
         <button
           type="button"
@@ -218,7 +321,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · этап 6 из 6 · Warm Utility
+            АгроПост · {meta?.version ?? "1.0.0"} · Warm Utility
           </p>
         </div>
       </section>

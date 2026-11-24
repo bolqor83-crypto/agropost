@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bean, ChevronRight, Handshake, Inbox, Send, ShieldCheck, Sparkles, Sprout, TrendingUp, Wheat } from "lucide-react";
+import { Bean, ChevronRight, Handshake, Inbox, IdCard, Send, ShieldCheck, Sparkles, Sprout, TrendingUp, Wheat } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
 import type { AiAdviceData, AiMeta } from "@shared/ai";
@@ -18,6 +18,7 @@ import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
 import type { ActivityItem } from "../api/types";
 import { Btn, Card, Chip, EmptyState, SectionTitle, Sheet, Skeleton } from "../components/ui";
 import { PositionDetailSheet } from "../components/PositionDetailSheet";
+import { dismissTip, shouldShowWelcomeTip, tipDismissed, type RequisitesLike } from "../lib/tips";
 
 function CultureIcon({ type }: { type: "SEED" | "NUT" }) {
   return type === "NUT" ? <Bean size={22} /> : <Sprout size={22} />;
@@ -166,6 +167,41 @@ function ActivityRow({ a }: { a: ActivityItem }) {
   );
 }
 
+/** ЭТАП 7: мягкий приветственный баннер при пустых реквизитах. */
+function WelcomeBanner({
+  onFill,
+  onLater,
+}: {
+  onFill: () => void;
+  onLater: () => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-3 p-4">
+      <div className="flex items-start gap-3">
+        <Sparkles size={18} className="mt-0.5 shrink-0 text-accent" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-ink">Добро пожаловать!</p>
+          <p className="mt-0.5 text-[12px] font-medium leading-relaxed text-soft">
+            Начните с заполнения реквизитов — без них не сформировать счёт,
+            договор и УПД для покупателя
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Btn full size="lg" onClick={onFill}>
+            <IdCard size={16} />
+            Заполнить реквизиты
+          </Btn>
+        </div>
+        <Btn size="lg" variant="ghost" onClick={onLater}>
+          Позже
+        </Btn>
+      </div>
+    </Card>
+  );
+}
+
 export function PultScreen() {
   const navigate = useNavigate();
   const activity = useActivityStore((s) => s.items);
@@ -183,6 +219,10 @@ export function PultScreen() {
     meta?: AiMeta;
     error?: string;
   }>({ loading: true });
+
+  /* ЭТАП 7: реквизиты для приветственного баннера (пустые → подсказка). */
+  const [requisites, setRequisites] = useState<RequisitesLike | null | undefined>(undefined);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(() => tipDismissed("welcome"));
 
   const loadAdvice = () => {
     setAdviceOpen(true);
@@ -223,6 +263,11 @@ export function PultScreen() {
       .then((r) => setWeekSummary(r))
       .catch(() => setWeekSummary(null))
       .finally(() => setWeekLoading(false));
+    /* ЭТАП 7: реквизиты — показать баннер, только если пустые. */
+    api
+      .getUserProfile()
+      .then((p) => setRequisites(p ?? null))
+      .catch(() => setRequisites(null));
   }, [load]);
 
   const dateStr = new Intl.DateTimeFormat("ru-RU", {
@@ -231,6 +276,10 @@ export function PultScreen() {
   }).format(new Date());
 
   const opened = positions.find((p) => p.id === openId) ?? null;
+
+  const showWelcome =
+    requisites !== undefined &&
+    shouldShowWelcomeTip(requisites, welcomeDismissed);
 
   return (
     <div className="screen-rise">
@@ -291,6 +340,19 @@ export function PultScreen() {
           </Btn>
         </div>
       </section>
+
+      {/* ЭТАП 7: приветственный баннер — только при пустых реквизитах. */}
+      {showWelcome && (
+        <section className="px-5 pt-4" aria-label="Приветственная подсказка">
+          <WelcomeBanner
+            onFill={() => navigate("/profile")}
+            onLater={() => {
+              dismissTip("welcome");
+              setWelcomeDismissed(true);
+            }}
+          />
+        </section>
+      )}
 
       {/* Этап 5: карточки аналитики → экран «Аналитика». */}
       <section className="px-5 pt-6">

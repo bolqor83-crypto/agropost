@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, Truck } from "lucide-react";
+import { Calculator, HandCoins, Truck } from "lucide-react";
 import { positionName } from "@shared/attributes";
 import { DEAL_TAX_MODE_LABEL } from "@shared/labels";
 import { computeDealEconomics } from "@shared/pricing";
@@ -15,6 +15,7 @@ import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
 import { fmtRub } from "../lib/format";
 import { Btn, Card, Chip, Field, Segmented, Select, Sheet, TextInput } from "../components/ui";
+import { shouldShowFirstDealTip } from "../lib/tips";
 import type { PendingDealPrefill } from "../stores/deal-create";
 
 const TAX_MODES: DealTaxMode[] = ["IP_6", "SELF_EMPLOYED_4", "SELF_EMPLOYED_6"];
@@ -32,6 +33,8 @@ export function DealFormSheet({
   const [step, setStep] = useState<1 | 2>(1);
   const [positions, setPositions] = useState<PositionDTO[]>([]);
   const [profileTaxMode, setProfileTaxMode] = useState<DealTaxMode>("IP_6");
+  /* ЭТАП 7: подсказка «Отправка после полной оплаты» — только для ПЕРВОЙ сделки. */
+  const [firstDeal, setFirstDeal] = useState(false);
 
   const [positionId, setPositionId] = useState(prefill?.positionId ?? "");
   const [buyerName, setBuyerName] = useState(prefill?.buyerName ?? "");
@@ -62,6 +65,11 @@ export function DealFormSheet({
       .getUserProfile()
       .then((p) => setProfileTaxMode(p?.dealTaxMode ?? "IP_6"))
       .catch(() => undefined);
+    /* ЭТАП 7: первая ли это сделка — решает, показывать подсказку. */
+    api
+      .listDeals()
+      .then((r) => setFirstDeal(shouldShowFirstDealTip(r.items.length)))
+      .catch(() => setFirstDeal(false));
   }, [showToast]);
 
   useEffect(() => {
@@ -160,6 +168,19 @@ export function DealFormSheet({
 
   return (
     <Sheet title={step === 1 ? "Новая сделка · товар" : "Новая сделка · доставка"} onClose={onClose}>
+      {/* ЭТАП 7: подсказка для первой сделки — правило предоплаты. */}
+      {step === 1 && firstDeal && (
+        <Card className="flex items-start gap-3 p-4">
+          <HandCoins size={18} className="mt-0.5 shrink-0 text-accent" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-ink">Отправка — после полной оплаты</p>
+            <p className="mt-0.5 text-[12px] font-medium leading-relaxed text-soft">
+              Предоплату и частичную оплату не берём: сделка создаётся черновиком,
+              после полной оплаты — «Оплата получена», отгрузка — из карточки сделки
+            </p>
+          </div>
+        </Card>
+      )}
       {step === 1 ? (
         <>
           <Field label="Позиция" hint="цены подставятся">

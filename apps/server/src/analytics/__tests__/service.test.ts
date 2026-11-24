@@ -387,6 +387,37 @@ describe("readiness (этап 6 — 7 пунктов запуска)", () => {
     });
     expect(dto.ready).toBe(7);
   });
+
+  /* ЭТАП 7 (C1): все 7 пунктов запуска на месте, у каждого непосещённого
+     пункта есть подсказка «куда идти», R2 — опциональный. */
+  test("этап 7: ровно 7 пунктов запуска с подсказками, r2 — опциональный", () => {
+    const dto = buildReadiness({
+      sellerComplete: false,
+      suppliersCount: 0,
+      positionsCount: 0,
+      channelsCount: 0,
+      botInChannel: false,
+      aiConfigured: false,
+      r2Configured: false,
+    });
+    expect(dto.items.map((i) => i.id)).toEqual([
+      "requisites",
+      "supplier",
+      "position",
+      "channel",
+      "bot",
+      "ai",
+      "r2",
+    ]);
+    /* Неготовый пункт обязан объяснить, что делать. */
+    for (const item of dto.items) {
+      expect(item.hint.length).toBeGreaterThan(5);
+      expect(item.label.length).toBeGreaterThan(5);
+    }
+    expect(dto.items.find((i) => i.id === "bot")?.hint).toContain("aylatica_sales_bot");
+    expect(dto.items.find((i) => i.id === "r2")?.optional).toBe(true);
+    expect(dto.ready).toBe(0);
+  });
 });
 
 describe("московские границы (shared/time)", () => {

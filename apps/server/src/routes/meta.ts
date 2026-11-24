@@ -7,8 +7,10 @@ export async function metaRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/meta", async () => ({
     ok: true,
     name: "АгроПост",
-    version: "0.9.0",
-    stage: 6,
+    version: "1.0.0",
+    stage: 7,
+    /* ЭТАП 7: дата текущего релиза — раздел «Версия и обновления». */
+    releasedAt: "2026-11-25",
     stages: {
       suppliers: true, // этап 1
       positions: true, // этап 1
@@ -20,6 +22,7 @@ export async function metaRoutes(app: FastifyInstance): Promise<void> {
       advice: true, // этап 5 (расширенный контекст + аналитика)
       analytics: true, // этап 5 (сводка, каналы, позиции, readiness)
       storage: true, // этап 6 (единое хранилище: base64 | R2)
+      docs: true, // этап 7 (документация и обучающие подсказки)
     },
     /* ЭТАП 6: режим файлового хранилища — фронт выбирает способ загрузки
        и показывает честное предупреждение про «файлы в БД». */
