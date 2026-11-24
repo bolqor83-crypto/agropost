@@ -135,6 +135,48 @@ describe("golden set: PDF-документы", () => {
     expect(text).not.toContain("Supplier");
     expect(text).not.toContain("поставщик");
   });
+
+  /* Патч 4.1, часть A: регресс на кодировку и опечатки шаблона договора. */
+  test("договор (самовывоз): «ПРОДАВЕЦ» без опечатки, кириллица без mojibake", async () => {
+    const data = docData("CONTRACT", "Д-002");
+    data.delivery = {
+      method: "PICKUP",
+      carrierName: null,
+      fromCity: null,
+      toCity: null,
+      cost: null,
+      trackingNumber: null,
+    };
+    const buffer = await generateDocumentPdf(data);
+    const text = await pdfText(buffer);
+
+    /* Заголовок раздела реквизитов и подписи — правильное слово. */
+    expect(text).toContain("ПРОДАВЕЦ");
+    expect(text).not.toContain("ПРОЛАВЕЦ");
+    expect(text).toContain("Продавец: ____");
+
+    /* Пункт 3 — доставка: живая кириллица, не CP1251→Latin-1 mojibake. */
+    expect(text).toContain("Самовывоз со склада продавца");
+    expect(text).toContain("Транспортные расходы несёт Покупатель");
+
+    /* Признаки двойной кодировки: «Ñàìîâûâîç» и подобные. */
+    expect(text).not.toMatch(/[À-Þßà-ÿ]{2,}/);
+    expect(text).not.toContain("Ñ");
+    expect(text).not.toContain("ì");
+    expect(text).not.toContain("âû");
+  });
+
+  test("все 4 документа: нет mojibake-последовательностей в извлечённом тексте", async () => {
+    const types: DocumentData["type"][] = ["INVOICE", "CONTRACT", "TRANSPORT_NOTE", "UPD"];
+    for (const type of types) {
+      const buffer = await generateDocumentPdf(docData(type, "X-001"));
+      const text = await pdfText(buffer);
+      expect(text).not.toMatch(/[À-Þßà-ÿ]{2,}/);
+      /* Кириллица реально извлекается (шрифт Roboto встроен корректно). */
+      expect(text).toContain("ПРОДАВЕЦ");
+      expect(text).not.toContain("ПРОЛАВЕЦ");
+    }
+  });
 });
 
 describe("реквизиты продавца", () => {

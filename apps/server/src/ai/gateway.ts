@@ -43,6 +43,13 @@ export interface AiRunOptions<T> {
   /** Для инвалидации кэша при PATCH позиции. */
   positionIds?: string[];
   warnings?: string[];
+  /**
+   * Пост-проверка чисел (патч 4.1): все числа ответа обязаны быть
+   * во входных данных — атрибуты позиции, цена, объём, год. Число,
+   * которого нет в списке (галлюцинация), отклоняет ответ: retry 1 раз,
+   * затем fallback. Не задан — проверка не выполняется.
+   */
+  allowedNumbers?: number[];
 }
 
 export interface AiGatewayDeps {
@@ -51,6 +58,41 @@ export interface AiGatewayDeps {
   cache?: AiCache;
   logger?: AiLogger;
   config?: AiConfig;
+}
+
+/* ---------- Патч 4.1: извлечение чисел из текста ---------- */
+
+/**
+ * Все числа текста: «45–50» → 45 и 50, «212,75 ₽/кг» → 212.75,
+ * «10 000 кг» → 10000 (пробельные тысячи склеиваются).
+ */
+export function extractNumbers(text: string): number[] {
+  let collapsed = text;
+  for (let i = 0; i < 3; i += 1) {
+    const next = collapsed.replace(
+      /(\d)[\u00A0\u2009 ](\d{3})(?=\D|$)/g,
+      "$1$2",
+    );
+    if (next === collapsed) break;
+    collapsed = next;
+  }
+  const tokens = collapsed.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  return tokens.map((t) => Number(t.replace(",", "."))).filter(Number.isFinite);
+}
+
+function numbersKey(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Числа ответа, которых нет в разрешённом списке входа. */
+export function hallucinatedNumbers(
+  text: string,
+  allowed: number[],
+): number[] {
+  const allow = new Set(allowed.map(numbersKey));
+  return [...new Set(extractNumbers(text).map(numbersKey))].filter(
+    (n) => !allow.has(n),
+  );
 }
 
 export class AiGateway {
@@ -126,8 +168,9 @@ export class AiGateway {
     let providerFailed = false;
 
     /* Две попытки. Если первая упала по сети/HTTP — вторая идёт в резервный
-     * канал; если вернулся невалидный JSON или white-label — та же модель,
-     * но с усиленным промптом. */
+     * канал; если вернулся невалидный JSON, white-label или галлюцинация
+     * числа — та же модель, но с усиленным промптом. */
+    const allowNumbers = options.allowedNumbers ?? null;
     for (let attempt = 0; attempt < 2 && data === null; attempt += 1) {
       const provider = providerFailed
         ? this.secondary ?? this.primary
@@ -141,7 +184,8 @@ export class AiGateway {
         attempt === 0
           ? options.user
           : `${options.user}\n\nВАЖНО: предыдущий ответ не прошёл проверку (${lastError}).\n` +
-            "Верни ТОЛЬКО валидный JSON по схеме. Не добавляй имя поставщика, город, станицу, склад, телефон и другие данные, которых нет во входе.";
+            "Верни ТОЛЬКО валидный JSON по схеме. Не добавляй имя поставщика, город, станицу, склад, телефон и другие данные, которых нет во входе. " +
+            "Все числа бери ТОЛЬКО из входных данных — не выдумывай, не округляй и не пересчитывай их.";
 
       try {
         const completion = await provider.complete({
@@ -171,6 +215,18 @@ export class AiGateway {
           lastError = `Нарушены правила: ${violations.join("; ")}`;
           providerFailed = false;
           continue;
+        }
+
+        /* Пост-проверка чисел (патч 4.1): в тексте ответа не должно быть
+         * чисел, которых нет во входных данных (кроме цен/объёма/года —
+         * они включаются в allowedNumbers вызывающим кодом). */
+        if (allowNumbers) {
+          const bad = hallucinatedNumbers(JSON.stringify(result.data), allowNumbers);
+          if (bad.length > 0) {
+            lastError = `числа не из входных данных: ${bad.join(", ")}`;
+            providerFailed = false;
+            continue;
+          }
         }
 
         data = result.data;

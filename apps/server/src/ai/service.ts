@@ -34,6 +34,7 @@ import { loadPrompt, renderPrompt } from "./prompts/index.js";
 import {
   adviceContextFromDb,
   adviceContextToPrompt,
+  listingAllowedNumbers,
   positionFacts,
 } from "./context.js";
 import {
@@ -122,6 +123,8 @@ export async function generateListing(
       const all = `${data.title}\n${data.body}\n${data.tags.join(" ")}`;
       return whiteLabelViolations(all, position);
     },
+    /* Патч 4.1: числа ответа — только из входных данных. */
+    allowedNumbers: listingAllowedNumbers(position),
     fallback: () => fallbackListing(position, input.platform),
     positionIds: [position.id],
   });
@@ -170,6 +173,8 @@ export async function generateReply(
     user,
     model: "flash",
     validate: (data) => whiteLabelViolations(data.reply, position),
+    /* Патч 4.1: ответ покупателю тоже без выдуманных чисел. */
+    allowedNumbers: listingAllowedNumbers(position),
     fallback: () => fallbackReply(position, input.incomingMessage),
     positionIds: [position.id],
   });

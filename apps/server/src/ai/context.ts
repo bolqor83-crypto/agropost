@@ -4,7 +4,8 @@
  * телефон, локация и заметки — white-label проверяется на выходе.
  */
 
-import { formatAttrValue, positionName } from "@shared/attributes";
+import { attributeDisplayType, formatAttrValue, positionName } from "@shared/attributes";
+import { extractNumbers } from "./gateway.js";
 import type { AiAdviceContext } from "@shared/ai";
 import type { PositionDTO } from "@shared/types";
 import { prisma } from "../prisma.js";
@@ -24,7 +25,18 @@ export function positionFacts(p: PositionDTO): string {
   ];
   for (const field of p.culture.attributesSchema) {
     const value = formatAttrValue(field, p.attributes[field.key]);
-    if (value !== "—") lines.push(`${field.label}: ${value}`);
+    if (value !== "—") {
+      const display = attributeDisplayType(field);
+      const hint =
+        display === "RANGE"
+          ? " (формат: диапазон, только эти числа)"
+          : display === "MIN"
+            ? " (формат: минимум, только это число)"
+            : display === "FIXED"
+              ? " (формат: точное значение, не менять)"
+              : "";
+      lines.push(`${field.label}: ${value}${hint}`);
+    }
   }
   lines.push(`Остаток: ${new Intl.NumberFormat("ru-RU").format(p.volumeKg)} кг`);
   lines.push(`Фасовка: мешки ${p.bagWeightKg} кг`);
@@ -51,6 +63,33 @@ export function fallbackTags(p: PositionDTO): string[] {
   tags.add("опт");
   if (p.hasCertificate) tags.add("сертификат");
   return [...tags].slice(0, 8);
+}
+
+/**
+ * Разрешённые числа для пост-проверки AI-текстов (патч 4.1):
+ * все числа атрибутов позиции (включая границы диапазонов «45–50»
+ * и числа внутри текстовых значений вроде «Вега 87»), цена, объём,
+ * фасовка, минимальная партия и детерминированные производные
+ * (мешки, тонны, выручка, цена за тонну). Число вне списка —
+ * галлюцинация, ответ отклоняется.
+ */
+export function listingAllowedNumbers(p: PositionDTO): number[] {
+  const nums: number[] = [];
+  for (const field of p.culture.attributesSchema) {
+    const raw = p.attributes[field.key];
+    if (raw === undefined || raw === null || raw === "") continue;
+    nums.push(...extractNumbers(String(raw)));
+  }
+  nums.push(p.salePrice, p.volumeKg, p.bagWeightKg, p.minLotKg);
+  if (p.bagWeightKg > 0) {
+    nums.push(Math.round(p.volumeKg / p.bagWeightKg));
+  }
+  if (p.volumeKg > 0) {
+    nums.push(Math.round((p.volumeKg / 1000) * 100) / 100);
+  }
+  nums.push(Math.round(p.salePrice * p.volumeKg * 100) / 100);
+  nums.push(Math.round(p.salePrice * 1000 * 100) / 100);
+  return nums.filter((n) => Number.isFinite(n));
 }
 
 /** Короткая строка позиции для контекста «Совет». */

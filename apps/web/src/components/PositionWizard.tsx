@@ -311,7 +311,15 @@ export function PositionWizard({
                 onChange={(e) => setAttrs((a) => ({ ...a, [f.key]: e.target.value }))}
                 inputMode={f.type === "text" ? "text" : "numeric"}
                 placeholder={
-                  f.type === "percent" ? "0–100" : f.type === "year" ? "2025" : "—"
+                  f.displayType === "RANGE"
+                    ? "45–50 или 32+"
+                    : f.displayType === "MIN"
+                      ? "не менее 45"
+                      : f.type === "percent"
+                        ? "0–100"
+                        : f.type === "year"
+                          ? "2025"
+                          : "—"
                 }
               />
             </Field>

@@ -29,6 +29,8 @@ export const supplierCreateSchema = z.object({
 
 export const supplierUpdateSchema = supplierCreateSchema.partial();
 
+export const attributeDisplayTypeSchema = z.enum(["FIXED", "RANGE", "MIN", "TEXT"]);
+
 export const attributeFieldSchema = z.object({
   key: z
     .string()
@@ -36,6 +38,8 @@ export const attributeFieldSchema = z.object({
     .regex(/^[a-z][a-zA-Z0-9]*$/, "Ключ поля — латиница с маленькой буквы"),
   label: z.string().trim().min(1, "У поля схемы нужен заголовок").max(60),
   type: z.enum(["text", "number", "percent", "year"]),
+  /* Патч 4.1: формат значения атрибута (FIXED/RANGE/MIN/TEXT) — контракт для AI. */
+  displayType: attributeDisplayTypeSchema.optional(),
   unit: z.string().trim().max(10).optional(),
   required: z.boolean(),
 });

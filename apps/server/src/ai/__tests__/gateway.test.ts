@@ -14,6 +14,7 @@ const config: AiConfig = {
   glmModelPro: "glm-test-pro",
   openrouterApiKey: null,
   openrouterModel: "test/openrouter",
+  openrouterModels: [],
   timeoutMs: 1000,
 };
 

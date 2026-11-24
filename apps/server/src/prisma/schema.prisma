@@ -128,7 +128,9 @@ model CultureTemplate {
   id               String             @id @default(cuid())
   name             String             @unique
   type             CultureType
-  /// Массив {key, label, type, unit, required} — схема атрибутов позиций.
+  /// Массив {key, label, type, displayType?, unit, required} — схема
+  /// атрибутов позиций. displayType (FIXED/RANGE/MIN/TEXT, патч 4.1) —
+  /// формат значения: контракт для AI «только переданные числа».
   attributesSchema Json
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt

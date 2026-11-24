@@ -12,8 +12,22 @@ export interface AiConfig {
   glmModelPro: string;
   openrouterApiKey: string | null;
   openrouterModel: string;
+  /** Каскад моделей OpenRouter (патч 4.1): пробуем по списку, пока не получим ответ. */
+  openrouterModels: string[];
   timeoutMs: number;
 }
+
+/**
+ * Бесплатные модели OpenRouter для каскадного переключения (патч 4.1).
+ * Порядок — от более «умной» к более лёгкой; можно переопределить
+ * через OPENROUTER_MODELS (через запятую).
+ */
+export const OPENROUTER_FREE_MODELS = [
+  "deepseek/deepseek-v4-flash-0731:free",
+  "qwen/qwen3.8-27b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+] as const;
 
 export const AI_DEFAULTS = {
   glmBaseUrl: "https://api.z.ai/api/paas/v4",
@@ -23,9 +37,21 @@ export const AI_DEFAULTS = {
   timeoutMs: 30_000,
 } as const;
 
+/** Список моделей каскада: OPENROUTER_MODELS или [OPENROUTER_MODEL?, ...free]. */
+function loadOpenRouterModels(env: NodeJS.ProcessEnv): string[] {
+  const explicit = env.OPENROUTER_MODELS
+    ?.split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  if (explicit?.length) return explicit;
+  const primary = env.OPENROUTER_MODEL?.trim();
+  return [...(primary ? [primary] : []), ...OPENROUTER_FREE_MODELS];
+}
+
 export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const provider = env.AI_PROVIDER === "openrouter" ? "openrouter" : "glm";
   const timeout = Number(env.AI_TIMEOUT_MS);
+  const openrouterModels = loadOpenRouterModels(env);
   return {
     provider,
     glmApiKey: env.GLM_API_KEY?.trim() || null,
@@ -36,7 +62,8 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
       env.OPENROUTER_API_KEY?.trim() ||
       env.OPENROUTER_KEY?.trim() ||
       null,
-    openrouterModel: env.OPENROUTER_MODEL?.trim() || AI_DEFAULTS.openrouterModel,
+    openrouterModel: openrouterModels[0] ?? AI_DEFAULTS.openrouterModel,
+    openrouterModels,
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : AI_DEFAULTS.timeoutMs,
   };
 }
@@ -46,7 +73,7 @@ export function aiPublicInfo(config: AiConfig): {
   provider: string;
   glmConfigured: boolean;
   openrouterConfigured: boolean;
-  models: { flash: string; pro: string; reserve: string };
+  models: { flash: string; pro: string; reserve: string; reserveCascade: string[] };
 } {
   return {
     provider: config.provider,
@@ -56,6 +83,7 @@ export function aiPublicInfo(config: AiConfig): {
       flash: config.glmModelFlash,
       pro: config.glmModelPro,
       reserve: config.openrouterModel,
+      reserveCascade: config.openrouterModels,
     },
   };
 }

@@ -23,11 +23,23 @@ export type TaxMode = "IP" | "SELF_EMPLOYED";
 export type AttributeType = "text" | "number" | "percent" | "year";
 export type AttributeValue = string | number;
 
+/**
+ * Как значение атрибута должно попадать в тексты (патч 4.1 — защита
+ * от AI-галлюцинаций чисел):
+ * - FIXED — одно точное значение («влажность 8%», «сорт Идеал»);
+ * - RANGE — диапазон «45–50» или нижняя граница «32+»;
+ * - MIN — минимум: число («не менее 45»);
+ * - TEXT — свободный текст без числового контракта.
+ */
+export type AttributeDisplayType = "FIXED" | "RANGE" | "MIN" | "TEXT";
+
 /** Поле схемы атрибутов шаблона культуры (хранится в attributesSchema). */
 export interface AttributeField {
   key: string;
   label: string;
   type: AttributeType;
+  /** Формат отображения/генерации (см. AttributeDisplayType). Не задан — по типу. */
+  displayType?: AttributeDisplayType;
   unit?: string;
   required: boolean;
 }
