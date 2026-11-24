@@ -46,6 +46,8 @@ interface ActivityState {
       channelName: string | null;
       channelType: ChannelType | null;
       channelsCount?: number;
+      /** Города каналов с гео-ротацией (этап 2.1). */
+      cities?: string[];
       mode: "auto" | "semi";
     }[],
   ) => void;

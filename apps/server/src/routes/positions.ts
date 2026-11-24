@@ -18,7 +18,7 @@ import {
 import { includeChannel, includePosition, mapChannel, mapPosition } from "../mappers.js";
 import { computeSalePrice } from "@shared/pricing";
 import { normalizeAttributes } from "@shared/attributes";
-import { rankChannels } from "@shared/channels";
+import { rankForRotation, buildRotation, withRotationInfo } from "@shared/rotation";
 import type { AttributeField } from "@shared/types";
 
 function buildWhere(query: Record<string, unknown>): Prisma.SupplierPositionWhereInput {
@@ -151,7 +151,10 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  /* Этап 2: умный подбор каналов под позицию (тип → тег → регион → охват). */
+  /* Этап 2 + 2.1: умный подбор каналов под позицию — с гео-ротацией.
+   * Сортировка: тег вида товара → свой регион → «не публиковали/давно»
+   * (cooldown-каналы вниз с бейджем) → активность → охват.
+   * rotation — виджет ротации по городам, если в одном регионе ≥2 городов. */
   app.post("/api/positions/:id/suggest-channels", async (req) => {
     const { id } = req.params as { id: string };
     const position = await prisma.supplierPosition.findUnique({
@@ -160,7 +163,17 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
     });
     if (!position) throw notFound("Позиция не найдена");
     const channels = await prisma.channel.findMany({ include: includeChannel });
-    const suggested = rankChannels(channels.map(mapChannel), position.culture.type, 5);
-    return { positionId: id, channels: suggested };
+    const published = await prisma.listing.findMany({
+      where: { status: "PUBLISHED" },
+      select: { channelId: true, publishedAt: true },
+    });
+    const mapped = channels.map(mapChannel);
+    const ranked = rankForRotation(mapped, published, position.culture.type, 5);
+    const rotation = buildRotation(mapped, published, position.culture.type);
+    return {
+      positionId: id,
+      channels: withRotationInfo(ranked, published),
+      ...(rotation ? { rotation } : {}),
+    };
   });
 }

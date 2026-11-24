@@ -34,6 +34,8 @@ export interface ActivityItem {
   channelType: ChannelType | null;
   /** Заполнен при channelName = null: во сколько каналов разместили. */
   channelsCount?: number;
+  /** Города размещённых каналов (гео-ротация, этап 2.1). */
+  cities?: string[];
   mode: "auto" | "semi";
   when: string;
 }

@@ -171,6 +171,8 @@ export interface ChannelDTO {
   /** Deep link: t.me/…, URL подачи объявления, URL чата. */
   url: string;
   region: string;
+  /** Город для гео-ротации (null — канал на весь регион, без ротации). */
+  city: string | null;
   tags: ChannelTag[];
   subscribersCount: number | null;
   averageReach: number | null;
@@ -206,6 +208,8 @@ export interface ListingDTO {
   text: string;
   status: ListingStatus;
   publishedAt: string | null;
+  /** Сколько раз отмечали «размещено» (растёт при повторной отметке). */
+  publishedCount: number;
   channel: ChannelDTO;
   createdAt: string;
   updatedAt: string;
@@ -218,6 +222,8 @@ export interface ChannelInput {
   type: ChannelType;
   url: string;
   region: string;
+  /** Город для гео-ротации; null/пусто — канал на весь регион. */
+  city?: string | null;
   tags: ChannelTag[];
   subscribersCount?: number | null;
   averageReach?: number | null;
@@ -246,8 +252,38 @@ export interface ListingUpdateInput {
   status?: ListingStatus;
 }
 
+/* ---------- Этап 2.1: гео-ротация ---------- */
+
+/** Город в виджете ротации: когда здесь размещали последний раз. */
+export interface RotationCityDTO {
+  city: string;
+  lastPublishedAt: string | null;
+  /** Целых дней с последнего размещения; null — никогда. */
+  daysSince: number | null;
+  /** Не в cooldown — можно размещать сегодня. */
+  available: boolean;
+  /** Сколько дней осталось ждать (0 — доступен). */
+  cooldownDaysLeft: number;
+}
+
+/** Ротация по региону: города и рекомендация на сегодня. */
+export interface RotationDTO {
+  region: string;
+  cities: RotationCityDTO[];
+  /** Город, где размещать сегодня (null — всё в cooldown). */
+  recommendedCity: string | null;
+}
+
+/** Канал в подборке + состояние ротации (cooldown после публикации). */
+export interface SuggestedChannelDTO extends ChannelDTO {
+  cooldown: boolean;
+  daysSince: number | null;
+}
+
 /** Ответ POST /api/positions/:id/suggest-channels. */
 export interface SuggestChannelsDTO {
   positionId: string;
-  channels: ChannelDTO[];
+  channels: SuggestedChannelDTO[];
+  /** Гео-ротация — только если в одном регионе ≥2 городов. */
+  rotation?: RotationDTO;
 }

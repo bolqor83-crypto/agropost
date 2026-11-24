@@ -1,7 +1,8 @@
 /**
- * Каналы — каталог этапа 2: теги, охват, поиск по названию.
+ * Каналы — каталог этапа 2 (+ гео-ротация 2.1): теги, охват, город,
+ * история «когда здесь размещали последний раз».
  * Фильтры и поиск работают локально по загруженному списку из store;
- * умный подбор для потока «Разместить» живёт на сервере (rankChannels).
+ * умный подбор для потока «Разместить» живёт на сервере (rankForRotation).
  */
 
 import { useEffect, useState } from "react";
@@ -10,6 +11,7 @@ import {
   ChevronLeft,
   Copy,
   ExternalLink,
+  History,
   Info,
   Megaphone,
   Pencil,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import { CHANNEL_TAGS, CHANNEL_TAG_LABEL } from "@shared/channels";
 import { CHANNEL_TYPE_LABEL } from "@shared/labels";
+import { channelHistory, daysSince } from "@shared/rotation";
 import type { ChannelDTO, ChannelTag } from "@shared/types";
 import * as api from "../api/client";
 import { CHANNEL_ICON } from "../features/channels/icons";
@@ -48,11 +51,39 @@ type DetailState =
 
 const TELEGRAM_TYPES: ChannelDTO["type"][] = ["TELEGRAM_CHAT", "TELEGRAM_CHANNEL"];
 
+/** История размещений канала (этап 2.1): когда и сколько раз. */
+interface ChannelHistoryInfo {
+  lastPublishedAt: string | null;
+  timesPublished: number;
+}
+
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+/** «Последнее размещение: 3 дня назад (здесь размещали 2 раза)». */
+function lastPlacementLabel(h: ChannelHistoryInfo | undefined): string {
+  if (!h || !h.lastPublishedAt) return "Никогда не размещали";
+  const d = daysSince(h.lastPublishedAt) ?? 0;
+  const when =
+    d === 0 ? "сегодня" : d === 1 ? "вчера" : `${d} ${pluralRu(d, "день", "дня", "дней")} назад`;
+  const times = h.timesPublished > 0
+    ? ` (здесь размещали ${h.timesPublished} ${pluralRu(h.timesPublished, "раз", "раза", "раз")})`
+    : "";
+  return `Последнее размещение: ${when}${times}`;
+}
+
 function ChannelCard({
   c,
+  history,
   onOpen,
 }: {
   c: ChannelDTO;
+  history?: ChannelHistoryInfo;
   onOpen: () => void;
 }) {
   const Icon = CHANNEL_ICON[c.type];
@@ -66,6 +97,7 @@ function ChannelCard({
           <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
           <p className="mt-0.5 truncate text-[12px] font-medium text-soft">
             {CHANNEL_TYPE_LABEL[c.type]} · {c.region}
+            {c.city && ` · ${c.city}`}
             {c.averageReach != null ? ` · ${fmtNum(c.averageReach)} охват` : ""}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -76,6 +108,11 @@ function ChannelCard({
             ))}
             {c.listingCount > 0 && <Chip tone="green">размещений: {c.listingCount}</Chip>}
           </div>
+          {history?.lastPublishedAt && (
+            <p className="mt-1.5 text-[12px] font-medium text-soft">
+              {lastPlacementLabel(history)}
+            </p>
+          )}
         </div>
       </div>
     </Card>
@@ -91,9 +128,21 @@ export function ChannelsScreen() {
   const [query, setQuery] = useState("");
   const [sheet, setSheet] = useState<DetailState>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  /* История размещений по каналам — для строки «Последнее размещение» */
+  const [histories, setHistories] = useState<Record<string, ChannelHistoryInfo>>({});
 
   useEffect(() => {
     void load();
+    api
+      .listListings()
+      .then((rows) => {
+        const acc: Record<string, ChannelHistoryInfo> = {};
+        for (const id of new Set(rows.map((r) => r.channelId))) {
+          acc[id] = channelHistory(id, rows);
+        }
+        setHistories(acc);
+      })
+      .catch(() => undefined); /* история не критична для списка */
   }, [load]);
 
   /* Фильтрация локальная: группа типа + тег + подстрока имени */
@@ -238,7 +287,12 @@ export function ChannelsScreen() {
         ) : (
           <div className="flex flex-col gap-3">
             {visible.map((c) => (
-              <ChannelCard key={c.id} c={c} onOpen={() => setSheet({ mode: "view", channel: c })} />
+              <ChannelCard
+                key={c.id}
+                c={c}
+                history={histories[c.id]}
+                onOpen={() => setSheet({ mode: "view", channel: c })}
+              />
             ))}
           </div>
         )}
@@ -282,6 +336,11 @@ export function ChannelsScreen() {
             <InfoRow label="Тип" value={CHANNEL_TYPE_LABEL[sheet.channel.type]} />
             <InfoRow label="Регион" value={sheet.channel.region} />
             <InfoRow
+              label="Город"
+              value={sheet.channel.city ?? "— (весь регион)"}
+              valueClass={sheet.channel.city ? "text-ink" : "text-soft"}
+            />
+            <InfoRow
               label="Средний охват"
               value={sheet.channel.averageReach != null ? fmtNum(sheet.channel.averageReach) : "—"}
               valueClass={sheet.channel.averageReach != null ? "text-ink" : "text-soft"}
@@ -298,6 +357,18 @@ export function ChannelsScreen() {
               value={String(sheet.channel.listingCount)}
               valueClass="text-soft"
             />
+          </div>
+
+          <div className="mt-3 rounded-[14px] bg-subtle px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <History size={13} className="shrink-0 text-soft" />
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-soft">
+                Ротация
+              </p>
+            </div>
+            <p className="mt-1 text-[13px] font-medium leading-relaxed text-ink">
+              {lastPlacementLabel(histories[sheet.channel.id])}
+            </p>
           </div>
 
           {sheet.channel.notes && (

@@ -341,6 +341,8 @@ export interface SeedChannel {
   /** Deep link: t.me/…, URL подачи объявления, URL чата. Заглушки — замените. */
   url: string;
   region: string;
+  /** Город для гео-ротации; null — канал на весь регион. */
+  city: string | null;
   tags: ChannelTag[];
   subscribersCount: number | null;
   averageReach: number | null;
@@ -357,6 +359,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHAT",
     url: "https://t.me/farmers_kubani",
     region: "ЮФО",
+    city: null,
     tags: ["SEEDS", "LIVESTOCK"],
     subscribersCount: 2800,
     averageReach: 3000,
@@ -370,6 +373,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHAT",
     url: "https://t.me/baraholka_dinsk",
     region: "Краснодарский край",
+    city: "Динская",
     tags: ["GENERAL"],
     subscribersCount: 1100,
     averageReach: 1200,
@@ -383,6 +387,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHANNEL",
     url: "https://t.me/fodder_yufo",
     region: "ЮФО",
+    city: null,
     tags: ["SEEDS"],
     subscribersCount: 5000,
     averageReach: 4500,
@@ -396,6 +401,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHAT",
     url: "https://t.me/copany_market",
     region: "Федеральный",
+    city: null,
     tags: ["NUT", "WHOLESALE"],
     subscribersCount: 7500,
     averageReach: 8000,
@@ -408,6 +414,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHANNEL",
     url: "https://t.me/fruvesh_opt",
     region: "Федеральный",
+    city: null,
     tags: ["NUT", "WHOLESALE"],
     subscribersCount: 12000,
     averageReach: 12000,
@@ -421,6 +428,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "TELEGRAM_CHANNEL",
     url: "https://t.me/nut_opt_rf",
     region: "Федеральный",
+    city: null,
     tags: ["NUT"],
     subscribersCount: 18000,
     averageReach: 9000,
@@ -434,6 +442,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "AGROSERVER",
     url: "https://agroserver.ru/board/oreh",
     region: "Федеральный",
+    city: null,
     tags: ["NUT"],
     subscribersCount: null,
     averageReach: null,
@@ -447,6 +456,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "AVITO",
     url: "https://www.avito.ru/krasnodarskiy_kray/semena/travy",
     region: "Краснодарский край",
+    city: null,
     tags: ["SEEDS"],
     subscribersCount: null,
     averageReach: null,
@@ -460,6 +470,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "MAX",
     url: "https://max.ru/u/agro_kuban",
     region: "ЮФО",
+    city: null,
     tags: ["SEEDS", "LIVESTOCK"],
     subscribersCount: 5000,
     averageReach: 2000,
@@ -473,6 +484,7 @@ export const SEED_CHANNELS: SeedChannel[] = [
     type: "YOULA",
     url: "https://youla.ru/krasnodar",
     region: "Краснодарский край",
+    city: null,
     tags: ["SEEDS", "NUT"],
     subscribersCount: null,
     averageReach: null,
@@ -480,6 +492,87 @@ export const SEED_CHANNELS: SeedChannel[] = [
     accountId: null,
     notes: "Локальная аудитория, годится для распродажи остатков.",
   },
+
+  /* Этап 2.1: гео-ротация. Ростовская область — четыре города: каждый день
+     размещаем в другом городе, канал видит объявление раз в 1–2 недели.
+     «Ростов-Агро» в сиде этапа 2 отсутствовал — добавлен здесь, иначе
+     сценарий ротации «Таганрог/Шахты/Ростов» не собрать (итого 14 каналов). */
+  {
+    id: "ch-rostov-agro",
+    name: "Ростов-Агро",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/rostov_agro",
+    region: "Ростовская область",
+    city: "Ростов-на-Дону",
+    tags: ["SEEDS", "GENERAL"],
+    subscribersCount: 1300,
+    averageReach: 1500,
+    activityDaysAgo: 1,
+    accountId: "acc-tg-main",
+    notes: "Расширение за пределы Кубани: Ростов и города области.",
+  },
+  {
+    id: "ch-taganrog",
+    name: "Барахолка Таганрога",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/baraholka_taganrog",
+    region: "Ростовская область",
+    city: "Таганрог",
+    tags: ["GENERAL", "SEEDS"],
+    subscribersCount: 800,
+    averageReach: 900,
+    activityDaysAgo: 0,
+    accountId: "acc-tg-main",
+    notes: "Ротация: Таганрог — день после Ростова.",
+  },
+  {
+    id: "ch-shakhty",
+    name: "Шахты куплю-продам",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/shakhty_kuply_prodam",
+    region: "Ростовская область",
+    city: "Шахты",
+    tags: ["GENERAL"],
+    subscribersCount: 600,
+    averageReach: 700,
+    activityDaysAgo: 1,
+    accountId: "acc-tg-backup",
+    notes: "Общий чат города: любой товар, годится для ротации.",
+  },
+  {
+    id: "ch-novocherkassk",
+    name: "Новочеркасск аграрный",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/novocherkassk_agro",
+    region: "Ростовская область",
+    city: "Новочеркасск",
+    tags: ["SEEDS", "LIVESTOCK"],
+    subscribersCount: 1000,
+    averageReach: 1100,
+    activityDaysAgo: 2,
+    accountId: "acc-tg-main",
+    notes: "Аграрный чат столицы Донского казачества.",
+  },
+];
+
+/* ---------- Этап 2.1: демо-история ротации ---------- */
+
+export interface SeedRotationListing {
+  id: string;
+  channelId: string;
+  /** Дней назад была публикация (для демо-состояния cooldown). */
+  publishedDaysAgo: number;
+}
+
+/**
+ * Демо-история для ротации: Ростов-Агро и Новочеркасск разместили 2 дня
+ * назад (в cooldown), Таганрог и Шахты — «никогда». Поэтому первый
+ * recommendedCity — Таганрог, после публикации там — Шахты.
+ * Позиция подставляется первой доступной на момент сида.
+ */
+export const SEED_ROTATION_LISTINGS: SeedRotationListing[] = [
+  { id: "lst-rotation-rostov", channelId: "ch-rostov-agro", publishedDaysAgo: 2 },
+  { id: "lst-rotation-novocherkassk", channelId: "ch-novocherkassk", publishedDaysAgo: 2 },
 ];
 
 /* ---------- Демо-фото (SVG data-URL, без внешних сервисов) ---------- */

@@ -204,6 +204,8 @@ model Channel {
   /// Deep link: t.me/username, t.me/c/XXX, URL подачи/чата.
   url              String
   region           String
+  /// Город для гео-ротации (этап 2.1); null — канал на весь регион.
+  city             String?
   tags             String[]
   subscribersCount Int?
   averageReach     Int?
@@ -230,6 +232,8 @@ model Listing {
   text        String
   status      ListingStatus    @default(DRAFT)
   publishedAt DateTime?
+  /// Сколько раз отмечали «размещено» (этап 2.1: растёт при повторной отметке).
+  publishedCount Int            @default(0)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 

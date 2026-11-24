@@ -80,6 +80,7 @@ function ActivityRow({ a }: { a: ActivityItem }) {
         <p className="text-[12px] font-medium text-soft">
           {a.channelType ? CHANNEL_TYPE_LABEL[a.channelType] : "размещение"} · {a.when} ·{" "}
           {a.mode === "auto" ? "авто через бота" : "полуавтомат"}
+          {a.cities && a.cities.length > 0 && ` · Города: ${a.cities.join(", ")}`}
         </p>
       </div>
     </div>

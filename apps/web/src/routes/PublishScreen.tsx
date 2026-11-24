@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   Copy,
   ExternalLink,
+  MapPin,
   Send,
   ShieldCheck,
   Sparkles,
@@ -21,7 +22,13 @@ import {
 import { attrSummary, positionName } from "@shared/attributes";
 import { CHANNEL_TAG_LABEL } from "@shared/channels";
 import { CHANNEL_TYPE_LABEL, LISTING_STATUS_LABEL } from "@shared/labels";
-import type { ChannelDTO, ListingDTO, PositionDTO } from "@shared/types";
+import type {
+  ChannelDTO,
+  ListingDTO,
+  PositionDTO,
+  RotationDTO,
+  SuggestedChannelDTO,
+} from "@shared/types";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
 import { CHANNEL_ICON } from "../features/channels/icons";
@@ -99,12 +106,15 @@ function PositionPickCard({
   );
 }
 
+/** Канал в списке шага 2: cooldown-поля приходят из подборки (этап 2.1). */
+type PickChannel = ChannelDTO & { cooldown?: boolean; daysSince?: number | null };
+
 function ChannelPickCard({
   c,
   checked,
   onToggle,
 }: {
-  c: ChannelDTO;
+  c: PickChannel;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -120,9 +130,17 @@ function ChannelPickCard({
         <Icon size={19} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-ink">{c.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 truncate text-[14px] font-semibold text-ink">{c.name}</p>
+          {c.cooldown && (
+            <Chip tone="warm" className="shrink-0">
+              ⏳ {c.daysSince} дн
+            </Chip>
+          )}
+        </div>
         <p className="mt-0.5 truncate text-[12px] font-medium text-soft">
           {CHANNEL_TYPE_LABEL[c.type]} · {c.region}
+          {c.city && ` · ${c.city}`}
           {reach !== null && ` · ${fmtNum(reach)} охват`}
         </p>
         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -145,6 +163,56 @@ function ChannelPickCard({
   );
 }
 
+/** «3 дня» / «никогда» — подпись города в виджете ротации. */
+function rotationCityLabel(days: number | null): string {
+  if (days === null) return "никогда";
+  if (days === 0) return "сегодня";
+  if (days === 1) return "1 день";
+  if (days < 5) return `${days} дня`;
+  return `${days} дн`;
+}
+
+/** Виджет «Ротация по региону»: города региона и где размещать сегодня. */
+function RotationWidget({ rotation }: { rotation: RotationDTO }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <MapPin size={14} className="shrink-0 text-accent" />
+        <p className="text-[13px] font-semibold text-ink">Ротация по региону</p>
+        <Chip tone="outline">{rotation.region}</Chip>
+      </div>
+      <p className="mt-1 text-[12px] font-medium text-soft">
+        Каждый день — новый город; канал видит объявление раз в 1–2 недели
+      </p>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {rotation.cities.map((c) => {
+          const recommended = rotation.recommendedCity === c.city;
+          return (
+            <span
+              key={c.city}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+                recommended
+                  ? "bg-accent-soft text-accent"
+                  : c.available
+                    ? "border border-accent/30 bg-transparent text-accent"
+                    : "bg-subtle text-soft"
+              }`}
+            >
+              {c.city} — {rotationCityLabel(c.daysSince)}
+              {!c.available && c.cooldownDaysLeft > 0 && ` (ждать ${c.cooldownDaysLeft} дн)`}
+            </span>
+          );
+        })}
+      </div>
+      {rotation.recommendedCity && (
+        <p className="mt-2 text-[12px] font-semibold text-accent">
+          Сегодня размещаем в: {rotation.recommendedCity}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 /** Черновик по каналу: listing | "pending" | "failed". */
 type DraftState = Record<string, ListingDTO | "pending" | "failed">;
 
@@ -160,7 +228,8 @@ export function PublishScreen() {
   const showToast = useToastStore((s) => s.show);
   const { positions, loading, load } = useCatalog();
   const { channels, load: loadChannels } = useChannels();
-  const [suggested, setSuggested] = useState<ChannelDTO[]>([]);
+  const [suggested, setSuggested] = useState<SuggestedChannelDTO[]>([]);
+  const [rotation, setRotation] = useState<RotationDTO | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [drafts, setDrafts] = useState<DraftState>({});
@@ -179,14 +248,17 @@ export function PublishScreen() {
     if (!position && step > 1) setStep(1);
   }, [position, step, setStep]);
 
-  /* Шаг 2: умный подбор под выбранную позицию */
+  /* Шаг 2: умный подбор под выбранную позицию + ротация по городам */
   useEffect(() => {
     if (step !== 2 || !position) return;
     setSuggestLoading(true);
     setShowAll(false);
     api
       .suggestChannels(position.id)
-      .then((r) => setSuggested(r.channels))
+      .then((r) => {
+        setSuggested(r.channels);
+        setRotation(r.rotation ?? null);
+      })
       .catch((err) =>
         showToast(err instanceof Error ? err.message : "Не удалось подобрать каналы"),
       )
@@ -194,7 +266,7 @@ export function PublishScreen() {
     void loadChannels();
   }, [step, position?.id, showToast, loadChannels]);
 
-  const visibleChannels = showAll ? channels : suggested;
+  const visibleChannels: PickChannel[] = showAll ? channels : suggested;
 
   /* Шаг 3: черновики для выбранных каналов — создаёт сервер */
   useEffect(() => {
@@ -253,12 +325,20 @@ export function PublishScreen() {
 
   const finish = () => {
     if (position && publishedCount > 0) {
+      /* Города каналов с гео-ротацией — в подпись ленты Пульта */
+      const publishedChannels = channelIds
+        .map((id) => channels.find((c) => c.id === id) ?? suggested.find((c) => c.id === id))
+        .filter((c): c is ChannelDTO => c !== undefined);
+      const cities = publishedChannels
+        .map((c) => c.city)
+        .filter((city): city is string => city !== null && city !== undefined);
       addActivity([
         {
           positionName: positionName(position.culture.name, position.attributes),
           channelName: null,
           channelType: null,
           channelsCount: publishedCount,
+          ...(cities.length > 0 ? { cities: [...new Set(cities)] } : {}),
           mode: "semi",
         },
       ]);
@@ -326,6 +406,11 @@ export function PublishScreen() {
               Подобрано по типу позиции, тегам и гео
             </p>
           </div>
+          {rotation && (
+            <div className="mb-3">
+              <RotationWidget rotation={rotation} />
+            </div>
+          )}
           {suggestLoading ? (
             <div className="flex flex-col gap-3">
               <Skeleton className="h-[96px] w-full rounded-[20px]" />

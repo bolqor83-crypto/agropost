@@ -135,6 +135,8 @@ export const channelCreateSchema = z.object({
       message: "Ссылка должна начинаться с http(s)://",
     }),
   region: z.string().trim().min(1, "Укажите регион").max(60),
+  /** Город для гео-ротации; пустая строка обрабатывается в роуте → null. */
+  city: z.string().trim().max(60, "Город — до 60 символов").optional().nullable(),
   tags: z
     .array(channelTagSchema)
     .min(1, "Выберите хотя бы один тег")

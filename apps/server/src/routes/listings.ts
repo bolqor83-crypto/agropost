@@ -1,13 +1,18 @@
 import type { FastifyInstance } from "fastify";
 
 /**
- * /api/listings — размещения (этап 2).
+ * /api/listings — размещения (этап 2 + 2.1).
  * POST собирает черновик текста из позиции: шаблонный текст в
  * shared/listing-text.ts, платформа — по типу канала.
  *
  * WHITE-LABEL: в тексте нет имени поставщика — только регион отгрузки.
  * «Отметить размещено» (PUBLISHED) проставляет publishedAt и incr-ит
  * счётчик usedToday у аккаунта канала (со сбросом при смене дня).
+ *
+ * Этап 2.1: POST идемпотентен по паре (позиция, канал) — повторный запуск
+ * потока возвращает существующий черновик, дублей не создаёт.
+ * Повторная отметка PUBLISHED обновляет publishedAt и наращивает
+ * publishedCount — без создания нового размещения.
  */
 
 import { prisma } from "../prisma.js";
@@ -68,6 +73,15 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     });
     if (!channel) throw notFound("Канал не найден");
 
+    /* Этап 2.1: дубль не создаём — для пары (позиция, канал) возвращаем
+     * существующее размещение (повторный запуск потока «Разместить»). */
+    const existing = await prisma.listing.findFirst({
+      where: { positionId: data.positionId, channelId: data.channelId },
+      orderBy: { createdAt: "desc" },
+      include: includeListing,
+    });
+    if (existing) return mapListing(existing);
+
     /* Текст: свой или шаблонный (white-label: только регион, без поставщика) */
     const mapped = mapPosition(position);
     const text =
@@ -99,19 +113,22 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     const current = await prisma.listing.findUnique({ where: { id } });
     if (!current) throw notFound("Размещение не найдено");
 
+    const wasPublished = current.status === "PUBLISHED";
     const row = await prisma.listing.update({
       where: { id },
       data: {
         ...(data.text !== undefined ? { text: data.text } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.status === "PUBLISHED" && current.status !== "PUBLISHED"
-          ? { publishedAt: new Date() }
+        /* Этап 2.1: каждая отметка PUBLISHED — обновляет дату и счётчик;
+         * дубль не создаём, аккаунт — только при первом переходе. */
+        ...(data.status === "PUBLISHED"
+          ? { publishedAt: new Date(), publishedCount: { increment: 1 } }
           : {}),
       },
       include: includeListing,
     });
 
-    if (data.status === "PUBLISHED" && current.status !== "PUBLISHED" && row.channel.accountId) {
+    if (data.status === "PUBLISHED" && !wasPublished && row.channel.accountId) {
       await bumpAccountUsage(row.channel.accountId);
     }
 

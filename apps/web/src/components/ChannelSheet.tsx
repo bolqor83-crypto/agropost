@@ -45,6 +45,7 @@ export function ChannelSheet({
   const [type, setType] = useState<ChannelType>(channel?.type ?? "TELEGRAM_CHANNEL");
   const [url, setUrl] = useState(channel?.url ?? "");
   const [region, setRegion] = useState(channel?.region ?? "");
+  const [city, setCity] = useState(channel?.city ?? "");
   const [tags, setTags] = useState<ChannelTag[]>(channel ? [...channel.tags] : []);
   const [subscribers, setSubscribers] = useState(
     channel?.subscribersCount != null ? String(channel.subscribersCount) : "",
@@ -70,6 +71,7 @@ export function ChannelSheet({
       type,
       url: url.trim(),
       region: region.trim(),
+      ...(city.trim() ? { city: city.trim() } : { city: null }),
       tags,
       ...(subscribersCount !== undefined ? { subscribersCount } : {}),
       ...(averageReach !== undefined ? { averageReach } : {}),
@@ -127,6 +129,15 @@ export function ChannelSheet({
             value={region}
             onChange={(e) => setRegion(e.target.value)}
             placeholder="ЮФО"
+            maxLength={60}
+          />
+        </Field>
+
+        <Field label="Город" hint="для ротации внутри региона; пусто — весь регион">
+          <TextInput
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="например: Таганрог"
             maxLength={60}
           />
         </Field>

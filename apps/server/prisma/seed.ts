@@ -21,6 +21,7 @@ import {
   SEED_CHANNELS,
   SEED_CULTURES,
   SEED_POSITIONS,
+  SEED_ROTATION_LISTINGS,
   SEED_SUPPLIERS,
   SEED_USER,
   demoPhoto,
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
   }
   console.log(`  аккаунты: ${SEED_ACCOUNTS.length}`);
 
-  /* Каналы (этап 2) — upsert по id */
+  /* Каналы (этап 2 + 2.1: city для гео-ротации) — upsert по id */
   for (const channel of SEED_CHANNELS) {
     const { id, activityDaysAgo, ...fields } = channel;
     const data = {
@@ -113,9 +114,42 @@ async function main(): Promise<void> {
   const positionCount = await prisma.supplierPosition.count();
   if (positionCount > 0) {
     console.log(`  позиции: уже есть ${positionCount} — пропускаю (сид не перезаписывает)`);
-    return;
+  } else {
+    await seedPositions();
   }
 
+  /* Этап 2.1: демо-история ротации — upsert по id (Ростов-Агро и
+   * Новочеркасск «размещали» 2 дня назад → cooldown; Таганрог и Шахты
+   * свежие → первый recommendedCity = Таганрог). Позицию подставляем
+   * первую доступную — реальные размещения пользователя не трогаем. */
+  const demoPosition = await prisma.supplierPosition.findFirst({
+    orderBy: { updatedAt: "asc" },
+  });
+  if (demoPosition) {
+    for (const demo of SEED_ROTATION_LISTINGS) {
+      const publishedAt = daysAgo(demo.publishedDaysAgo);
+      await prisma.listing.upsert({
+        where: { id: demo.id },
+        create: {
+          id: demo.id,
+          positionId: demoPosition.id,
+          channelId: demo.channelId,
+          text: "Демо-размещение для гео-ротации (история cooldown).",
+          status: "PUBLISHED",
+          publishedAt,
+          publishedCount: 1,
+        },
+        update: { status: "PUBLISHED", publishedAt, publishedCount: 1 },
+      });
+    }
+    console.log(`  ротация: демо-история ${SEED_ROTATION_LISTINGS.length} размещения`);
+  } else {
+    console.log("  ротация: демо-история пропущена — нет позиций");
+  }
+  console.log("Готово.");
+}
+
+async function seedPositions(): Promise<void> {
   for (const position of SEED_POSITIONS) {
     const salePrice = computeSalePrice(position.supplierPrice, position.markupPercent);
     const created = await prisma.supplierPosition.create({
@@ -163,7 +197,6 @@ async function main(): Promise<void> {
     }
   }
   console.log(`  позиции: ${SEED_POSITIONS.length} (+ медиа и сертификаты)`);
-  console.log("Готово.");
 }
 
 main()
