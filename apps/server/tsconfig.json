@@ -19,5 +19,5 @@
     }
   },
   "include": ["src", "prisma", "prisma.config.ts", "../../shared"],
-  "exclude": ["src/ai/__tests__"]
+  "exclude": ["src/ai/__tests__", "src/telegram/__tests__"]
 }

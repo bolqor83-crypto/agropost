@@ -19,6 +19,13 @@ import type {
   ChannelTag,
   ChannelType,
   CultureTemplateDTO,
+  LeadDetailDTO,
+  LeadDTO,
+  LeadDraftDTO,
+  LeadMessageDTO,
+  LeadReplyInput,
+  LeadStatus,
+  LeadUpdateInput,
   ListingCreateInput,
   ListingDTO,
   ListingUpdateInput,
@@ -32,6 +39,8 @@ import type {
   SuggestChannelsDTO,
   SupplierDTO,
   SupplierInput,
+  TelegramPublishDTO,
+  TelegramStatusDTO,
   UserDTO,
 } from "@shared/types";
 import type {
@@ -278,6 +287,80 @@ export function updateListing(id: string, patch: ListingUpdateInput): Promise<Li
 
 export function deleteListing(id: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/listings/${id}`, { method: "DELETE" });
+}
+
+/* ---------- Этап 3.2: инбокс (лиды) и Telegram-бот ---------- */
+
+export interface LeadFilters {
+  status?: LeadStatus;
+  source?: string;
+  q?: string;
+}
+
+/** Список лидов с превью последнего сообщения. */
+export function listLeads(filters: LeadFilters = {}): Promise<{ items: LeadDTO[] }> {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", filters.status);
+  if (filters.source) params.set("source", filters.source);
+  if (filters.q) params.set("q", filters.q);
+  const qs = params.toString();
+  return request<{ items: LeadDTO[] }>(`/leads${qs ? `?${qs}` : ""}`);
+}
+
+/** Лид с полной перепиской. */
+export function getLead(id: string): Promise<LeadDetailDTO> {
+  return request<LeadDetailDTO>(`/leads/${id}`);
+}
+
+/** Статус, заметка, интерес, позиция. */
+export function updateLead(id: string, patch: LeadUpdateInput): Promise<LeadDetailDTO> {
+  return request<LeadDetailDTO>(`/leads/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+/** Черновик ответа (AI по позиции или честный fallback-шаблон). */
+export function replyLeadDraft(id: string): Promise<LeadDraftDTO> {
+  return request<LeadDraftDTO>(`/leads/${id}/reply`, {
+    method: "POST",
+    body: JSON.stringify({ useAi: true }),
+  });
+}
+
+/** Отправка ответа покупателю через бота (возвращает отправленное сообщение). */
+export function sendLeadReply(
+  id: string,
+  input: LeadReplyInput,
+): Promise<{ ok: true; message: LeadMessageDTO }> {
+  return request<{ ok: true; message: LeadMessageDTO }>(`/leads/${id}/reply`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Статус бота: настроен ли, webhook, новые лиды, свои каналы. */
+export function getTelegramStatus(): Promise<TelegramStatusDTO> {
+  return request<TelegramStatusDTO>("/telegram/status");
+}
+
+/** Ручная установка webhook (если авто-сетап при деплое не сработал). */
+export function setupTelegramWebhook(url?: string): Promise<{
+  ok: true;
+  webhook: { url: string; pendingUpdateCount: number; lastErrorMessage?: string };
+}> {
+  return request<{ ok: true; webhook: { url: string; pendingUpdateCount: number; lastErrorMessage?: string } }>(
+    "/telegram/setup-webhook",
+    { method: "POST", body: JSON.stringify(url ? { url } : {}) },
+  );
+}
+
+/** Публикация черновика в свой канал через бота (админом которого он является). */
+export function publishViaBot(
+  listingId: string,
+  confirm?: boolean,
+): Promise<TelegramPublishDTO> {
+  return request<TelegramPublishDTO>("/telegram/publish", {
+    method: "POST",
+    body: JSON.stringify({ listingId, ...(confirm ? { confirm: true } : {}) }),
+  });
 }
 
 /* ---------- Этап 3.0: AI-слой (5 use cases) ---------- */

@@ -181,6 +181,7 @@ export function mapListing(row: ListingRow): ListingDTO {
     status: row.status,
     publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
     publishedCount: row.publishedCount,
+    url: row.url ?? null,
     channel: mapChannel(row.channel),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

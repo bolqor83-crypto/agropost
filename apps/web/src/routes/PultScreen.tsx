@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bean, ChevronRight, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
+import { Bean, ChevronRight, Inbox, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
 import type { AiAdviceData, AiMeta } from "@shared/ai";
@@ -95,6 +95,7 @@ export function PultScreen() {
   const { positions, loading, error, load } = useCatalog();
   const [openId, setOpenId] = useState<string | null>(null);
   const [adviceOpen, setAdviceOpen] = useState(false);
+  const [newLeads, setNewLeads] = useState<number | null>(null);
   const [advice, setAdvice] = useState<{
     loading: boolean;
     data?: AiAdviceData;
@@ -126,6 +127,11 @@ export function PultScreen() {
 
   useEffect(() => {
     void load();
+    /* Этап 3.2: бейдж новых сообщений в шапке Пульта. */
+    api
+      .getTelegramStatus()
+      .then((r) => setNewLeads(r.newLeads))
+      .catch(() => setNewLeads(null));
   }, [load]);
 
   const dateStr = new Intl.DateTimeFormat("ru-RU", {
@@ -144,6 +150,22 @@ export function PultScreen() {
           </div>
           <span className="text-[16px] font-semibold text-ink">АгроПост</span>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate("/inbox")}
+          aria-label={newLeads ? `Новых сообщений: ${newLeads}` : "Инбокс"}
+          className="press relative inline-flex items-center gap-1.5 rounded-full bg-subtle px-3.5 py-2 text-[12px] font-semibold text-ink"
+        >
+          <Inbox size={14} />
+          {newLeads !== null && newLeads > 0 ? (
+            <>
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-warm px-1 text-[10px] font-bold text-white">
+                {newLeads}
+              </span>
+              Новые: {newLeads}
+            </>
+          ) : null}
+        </button>
         <button
           type="button"
           onClick={loadAdvice}

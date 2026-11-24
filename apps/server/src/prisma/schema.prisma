@@ -159,6 +159,7 @@ model SupplierPosition {
   media          Media[]
   certificates   Certificate[]
   listings       Listing[]
+  leads          Lead[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -261,6 +262,8 @@ model Channel {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   listings         Listing[]
+  /// Связка «наш бот — админ канала» (этап 3.2, автопостинг).
+  botConfig        BotConfig?
   /// Этот канал — зеркало mirrorOf-канала (обратная сторона self-FK).
   mirroredBy       Channel[]   @relation("ChannelMirror")
   /// Канал, зеркалом которого является этот (self-FK, TG↔MAX).
@@ -282,6 +285,8 @@ model Listing {
   publishedAt DateTime?
   /// Сколько раз отмечали «размещено» (этап 2.1: растёт при повторной отметке).
   publishedCount Int            @default(0)
+  /// Ссылка на опубликованное сообщение (этап 3.2: постинг через своего бота).
+  url         String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -320,6 +325,91 @@ model AiCall {
 
   @@index([useCase, createdAt])
   @@index([inputHash])
+}
+
+/* ---------- Этап 3.2: лиды, инбокс, Telegram-бот ---------- */
+
+enum LeadSource {
+  TELEGRAM_BOT
+  TELEGRAM_CHAT
+  AVITO
+  MANUAL
+}
+
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  ANSWERED
+  CLOSED
+  SPAM
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// Покупатель, который написал (этап 3.2). Модель сразу рассчитана
+/// на несколько источников; Telegram-источник отличает externalId.
+model Lead {
+  id               String            @id @default(cuid())
+  source           LeadSource        @default(TELEGRAM_BOT)
+  /// Telegram user id покупателя (для TELEGRAM_BOT / TELEGRAM_CHAT).
+  externalId       String?
+  /// @username покупателя, если есть.
+  externalUsername String?
+  /// first_name + last_name из профиля Telegram.
+  name             String?
+  phone            String?
+  region           String?
+  /// Извлечённый интерес: «люцерна 2 класс».
+  interest         String?
+  status           LeadStatus        @default(NEW)
+  /// Позиция, о которой спросил покупатель (deep link ?start=pos_...).
+  positionId       String?
+  position         SupplierPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  notes            String?
+  messages         Message[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([source])
+  @@index([status])
+  @@index([externalId])
+  @@index([positionId])
+  @@unique([source, externalId])
+}
+
+model Message {
+  id                String           @id @default(cuid())
+  lead              Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId            String
+  direction         MessageDirection
+  text              String
+  sentAt            DateTime         @default(now())
+  /// Ответ сгенерирован AI (/api/ai/reply) и отправлен как есть/с правками.
+  aiGenerated       Boolean          @default(false)
+  /// id AiCall, сгенерировавшего черновик (строка-ссылка без FK — AI-слой не трогаем).
+  aiCallId          String?
+  /// Telegram message_id: дедупликация ретраев webhook + привязка reply.
+  telegramMessageId String?
+  createdAt         DateTime         @default(now())
+
+  @@index([leadId, sentAt])
+  @@unique([leadId, telegramMessageId])
+}
+
+/// Каналы, где наш бот — админ (проверено через getChatMember при публикации).
+model BotConfig {
+  id             String   @id @default(cuid())
+  channel        Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channelId      String
+  /// Chat id канала (-100…) — куда бот постит напрямую.
+  telegramChatId String
+  isAdmin        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@unique([channelId])
 }
 
 /* ---------- Этап 2.5: цены конкурентов (парсер) ---------- */

@@ -227,3 +227,48 @@ export function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
   }
   return result.data;
 }
+
+/* ---------- Этап 3.2: лиды, инбокс, Telegram-бот ---------- */
+
+export const leadStatusSchema = z.enum([
+  "NEW",
+  "IN_PROGRESS",
+  "ANSWERED",
+  "CLOSED",
+  "SPAM",
+]);
+export const leadSourceSchema = z.enum([
+  "TELEGRAM_BOT",
+  "TELEGRAM_CHAT",
+  "AVITO",
+  "MANUAL",
+]);
+
+export const leadUpdateSchema = z.object({
+  status: leadStatusSchema.optional(),
+  notes: z.string().trim().max(2000, "Заметка — до 2000 символов").optional(),
+  interest: z.string().trim().max(120, "Интерес — до 120 символов").optional(),
+  positionId: z.string().trim().min(1).optional().nullable(),
+});
+
+/** POST /api/leads/:id/reply: черновик AI или готовый текст на отправку. */
+export const leadReplySchema = z
+  .object({
+    useAi: z.boolean().optional(),
+    text: z.string().trim().min(1, "Ответ не может быть пустым").max(4000, "Ответ — до 4000 символов").optional(),
+    /** id AiCall черновика, если отправили его как есть/с правками. */
+    aiCallId: z.string().trim().min(1).optional(),
+  })
+  .refine((v) => v.useAi === true || (v.text !== undefined), {
+    message: "Укажите text для отправки или useAi для черновика",
+  });
+
+export const telegramPublishSchema = z.object({
+  listingId: z.string().trim().min(1, "Не указано размещение"),
+  /** Обход анти-бана «1 публикация в 24 ч» — ручное подтверждение повтора. */
+  confirm: z.boolean().optional(),
+});
+
+export const telegramSetupWebhookSchema = z.object({
+  url: z.string().trim().url("Укажите ссылку (https://…)").max(300).optional(),
+});

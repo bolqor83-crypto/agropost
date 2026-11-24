@@ -8,6 +8,7 @@ import {
   Bot,
   ChevronRight,
   FileText,
+  Inbox,
   Megaphone,
   Package,
   Send,
@@ -29,6 +30,8 @@ const SECTIONS: {
   hint: string;
   to?: string;
 }[] = [
+  { icon: Inbox, name: "Инбокс", stage: "этап 3.2", hint: "Покупатели из Telegram-бота, ответы с AI-черновиком", to: "/inbox" },
+  { icon: Bot, name: "Telegram-бот", stage: "этап 3.2", hint: "Приём вопросов и автопостинг в свои каналы", to: "/telegram" },
   { icon: Users, name: "Поставщики", stage: "этап 1", hint: "Справочник, режимы отгрузки, заметки", to: "/suppliers" },
   { icon: Package, name: "Позиции и остатки", stage: "этап 1", hint: "Шаблоны культур, атрибуты, медиа", to: "/positions" },
   { icon: Megaphone, name: "Каналы", stage: "этап 2", hint: "Каталог с тегами, охватом, подбор", to: "/channels" },
@@ -95,7 +98,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · этап 2 из 6 · Warm Utility
+            АгроПост · этап 3.2 из 6 · Warm Utility
           </p>
         </div>
       </section>

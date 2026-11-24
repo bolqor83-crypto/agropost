@@ -9,6 +9,8 @@
 
 /* ---------- Перечисления (в Prisma — enum, здесь — union) ---------- */
 
+import type { AiMeta } from "./ai";
+
 export type SupplierLocation = "PAVLOVSKAYA" | "LENINGRADSKAYA" | "TIHORETSK" | "OTHER";
 export type ShippingMode = "SELF_LOADS" | "FROM_WAREHOUSE" | "BOTH";
 export type CultureType = "SEED" | "NUT";
@@ -241,6 +243,8 @@ export interface ListingDTO {
   publishedAt: string | null;
   /** Сколько раз отмечали «размещено» (растёт при повторной отметке). */
   publishedCount: number;
+  /** Ссылка на сообщение (этап 3.2: постинг через своего бота). */
+  url: string | null;
   channel: ChannelDTO;
   createdAt: string;
   updatedAt: string;
@@ -374,4 +378,87 @@ export interface ParserRunDTO {
   /** Пояснение, если сервис недоступен или адаптеры отключены. */
   note?: string;
   [key: string]: unknown;
+}
+
+/* ---------- Этап 3.2: инбокс (лиды) и Telegram-бот ---------- */
+
+export type LeadSource = "TELEGRAM_BOT" | "TELEGRAM_CHAT" | "AVITO" | "MANUAL";
+export type LeadStatus = "NEW" | "IN_PROGRESS" | "ANSWERED" | "CLOSED" | "SPAM";
+export type MessageDirection = "INBOUND" | "OUTBOUND";
+
+export interface LeadMessageDTO {
+  id: string;
+  direction: MessageDirection;
+  text: string;
+  sentAt: string;
+  aiGenerated: boolean;
+  aiCallId: string | null;
+}
+
+/** Пункт списка инбокса: лид + последнее сообщение для превью. */
+export interface LeadDTO {
+  id: string;
+  source: LeadSource;
+  externalId: string | null;
+  externalUsername: string | null;
+  name: string | null;
+  phone: string | null;
+  region: string | null;
+  interest: string | null;
+  status: LeadStatus;
+  positionId: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage: { text: string; direction: MessageDirection; sentAt: string } | null;
+}
+
+export interface LeadDetailDTO extends LeadDTO {
+  messages: LeadMessageDTO[];
+}
+
+/** Ответ «Черновик AI» в карточке лида. */
+export interface LeadDraftDTO {
+  ok: true;
+  draft: string;
+  includes: string[];
+  warnings: string[];
+  meta: AiMeta;
+}
+
+/** GET /api/telegram/status. */
+export interface TelegramStatusDTO {
+  ok: true;
+  configured: boolean;
+  bot: { username: string; url: string } | null;
+  webhook: { url: string; pendingUpdateCount: number; lastErrorMessage?: string } | null;
+  newLeads: number;
+  leadsToday: number;
+  channels: { channelId: string; name: string; url: string }[];
+}
+
+/** Ответ POST /api/telegram/publish. */
+export interface TelegramPublishDTO {
+  ok: true;
+  listingId: string;
+  url: string | null;
+  publishedAt: string;
+  warning?: string;
+}
+
+/** PATCH /api/leads/:id — статус, заметка, интерес, позиция. */
+export interface LeadUpdateInput {
+  status?: LeadStatus;
+  notes?: string;
+  interest?: string;
+  /** null снимает привязку к позиции. */
+  positionId?: string | null;
+}
+
+/** POST /api/leads/:id/reply: черновик AI (useAi) или готовый текст. */
+export interface LeadReplyInput {
+  useAi?: boolean;
+  text?: string;
+  /** id AiCall черновика, если отправили его как есть/с правками. */
+  aiCallId?: string;
 }

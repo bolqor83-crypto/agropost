@@ -18,6 +18,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import { listingPlatformForChannel } from "@shared/listing-text";
@@ -29,6 +30,7 @@ import type {
   PositionDTO,
   RotationDTO,
   SuggestedChannelDTO,
+  TelegramStatusDTO,
 } from "@shared/types";
 import type { AiListingData, AiMeta } from "@shared/ai";
 import * as api from "../api/client";
@@ -248,6 +250,19 @@ export function PublishScreen() {
   const [textOverrides, setTextOverrides] = useState<Record<string, string>>({});
   const [savingText, setSavingText] = useState<Record<string, boolean>>({});
 
+  /* Этап 3.2: бот-постинг в свои каналы (там, где наш бот — админ). */
+  const [botStatus, setBotStatus] = useState<TelegramStatusDTO | null>(null);
+  const [publishing, setPublishing] = useState<Record<string, boolean>>({});
+  const [confirm24h, setConfirm24h] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (step !== 3) return;
+    api
+      .getTelegramStatus()
+      .then(setBotStatus)
+      .catch(() => setBotStatus(null));
+  }, [step]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -374,6 +389,40 @@ export function PublishScreen() {
       return;
     }
     if (draft.status === "DRAFT") void markListing(channelId, "COPIED");
+  };
+
+  /* Этап 3.2: канал своего типа с нашим ботом — публикация одной кнопкой. */
+  const botEligible = (c: ChannelDTO | null): boolean => {
+    if (!c || c.submissionMethod !== "BOT" || !c.submissionBotUsername || !botStatus?.bot) return false;
+    return (
+      c.submissionBotUsername.replace(/^@/, "").toLowerCase() ===
+      botStatus.bot.username.toLowerCase()
+    );
+  };
+
+  const publishViaBot = async (channelId: string) => {
+    const draft = drafts[channelId];
+    if (!isListing(draft) || draft.status === "PUBLISHED" || publishing[channelId]) return;
+    setPublishing((s) => ({ ...s, [channelId]: true }));
+    try {
+      const res = await api.publishViaBot(draft.id, confirm24h[channelId] === true);
+      /* Обновляем черновик до PUBLISHED с реальной ссылкой. */
+      const updated = await api.updateListing(draft.id, { status: "PUBLISHED" }).catch(() => null);
+      setDrafts((d) => ({
+        ...d,
+        [channelId]: updated ?? { ...draft, status: "PUBLISHED" as const, url: res.url },
+      }));
+      showToast(res.warning ?? "Опубликовано через бота — ссылка под текстом");
+    } catch (err) {
+      if (err instanceof api.ApiError && err.status === 409) {
+        setConfirm24h((s) => ({ ...s, [channelId]: true }));
+        showToast("Уже была публикация за 24 ч — нажмите ещё раз для подтверждения");
+      } else {
+        showToast(err instanceof Error ? err.message : "Не удалось опубликовать через бота");
+      }
+    } finally {
+      setPublishing((s) => ({ ...s, [channelId]: false }));
+    }
   };
 
   const publishedCount = channelIds.filter((id) => {
@@ -667,6 +716,21 @@ export function PublishScreen() {
                           <CheckCircle2 size={15} />
                           Размещено
                         </div>
+                      ) : botEligible(ch ?? draft.channel) ? (
+                        <Btn
+                          full
+                          variant={confirm24h[id] ? "secondary" : "primary"}
+                          onClick={() => void publishViaBot(id)}
+                          disabled={publishing[id]}
+                          ariaLabel="Опубликовать через бота"
+                        >
+                          <Zap size={15} className={publishing[id] ? "animate-pulse" : ""} />
+                          {publishing[id]
+                            ? "Публикую…"
+                            : confirm24h[id]
+                              ? "Подтвердить публикацию"
+                              : "Через бота"}
+                        </Btn>
                       ) : (
                         <Btn full onClick={() => void markListing(id, "PUBLISHED")}>
                           <Check size={15} />
@@ -674,6 +738,24 @@ export function PublishScreen() {
                         </Btn>
                       )}
                     </div>
+                  )}
+
+                  {/* Этап 3.2: ссылка на пост, опубликованный ботом. */}
+                  {isListing(draft) && draft.url && (
+                    <a
+                      href={draft.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="press mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-accent"
+                    >
+                      <ExternalLink size={13} className="shrink-0" />
+                      Открыть в Telegram
+                    </a>
+                  )}
+                  {isListing(draft) && !published && botEligible(ch ?? draft.channel) && (
+                    <p className="mt-2 text-[11px] font-medium text-soft">
+                      Бот — админ канала: опубликует сам и вернёт ссылку на пост
+                    </p>
                   )}
                 </Card>
               );
