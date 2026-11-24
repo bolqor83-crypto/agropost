@@ -9,6 +9,8 @@ import { TelegramBotScreen } from "../routes/TelegramBotScreen";
 import { MoreScreen } from "../routes/MoreScreen";
 import { SettingsScreen } from "../routes/SettingsScreen";
 import { AvitoApiScreen } from "../routes/AvitoApiScreen";
+import { MaxApiScreen } from "../routes/MaxApiScreen";
+import { UserbotScreen } from "../routes/UserbotScreen";
 import { AnalyticsScreen } from "../routes/AnalyticsScreen";
 import { ProfileScreen } from "../routes/ProfileScreen";
 import { SuppliersScreen } from "../routes/SuppliersScreen";
@@ -38,6 +40,8 @@ export const router = createBrowserRouter([
       { path: "more", element: <MoreScreen /> },
       { path: "settings", element: <SettingsScreen /> },
       { path: "settings/avito", element: <AvitoApiScreen /> },
+      { path: "settings/max", element: <MaxApiScreen /> },
+      { path: "settings/userbot", element: <UserbotScreen /> },
       { path: "analytics", element: <AnalyticsScreen /> },
       { path: "profile", element: <ProfileScreen /> },
       { path: "suppliers", element: <SuppliersScreen /> },

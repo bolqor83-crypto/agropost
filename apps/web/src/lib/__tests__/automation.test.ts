@@ -8,6 +8,9 @@ import {
   avitoButtonEnabled,
   avitoButtonLabel,
   isAvitoChannel,
+  isMaxChannel,
+  maxChannelChatId,
+  maxPublishButtonLabel,
   type AvitoFlowStep,
 } from "../automation";
 import type { ChannelDTO } from "@shared/types";
@@ -83,5 +86,33 @@ describe("кнопка «Опубликовать на Авито» (этап 9)
     expect(avitoButtonLabel("preview" as AvitoFlowStep)).toBe("Подтвердить отправку");
     expect(avitoButtonLabel("publishing" as AvitoFlowStep)).toBe("Отправляю…");
     expect(avitoButtonLabel("done" as AvitoFlowStep)).toBe("Отправлено в Авито");
+  });
+});
+
+/* ---------- ЭТАП 10: MAX-канал и кнопка публикации ---------- */
+
+describe("MAX: канал и кнопка публикации", () => {
+  test("isMaxChannel: только type=MAX", () => {
+    expect(isMaxChannel(channel("MAX"))).toBe(true);
+    expect(isMaxChannel(channel("TELEGRAM_CHANNEL"))).toBe(false);
+    expect(isMaxChannel(channel("AVITO"))).toBe(false);
+    expect(isMaxChannel(null)).toBe(false);
+  });
+
+  test("maxChannelChatId: привязка из статуса или null", () => {
+    const channels = [
+      { channelId: "ch-a", chatId: 100 },
+      { channelId: "ch-b", chatId: null },
+    ];
+    expect(maxChannelChatId("ch-a", channels)).toBe(100);
+    expect(maxChannelChatId("ch-b", channels)).toBe(null);
+    expect(maxChannelChatId("ch-x", channels)).toBe(null);
+    expect(maxChannelChatId("ch-a", undefined)).toBe(null);
+  });
+
+  test("maxPublishButtonLabel: состояния кнопки", () => {
+    expect(maxPublishButtonLabel({ publishing: false, confirm: false })).toBe("Опубликовать в MAX");
+    expect(maxPublishButtonLabel({ publishing: true, confirm: false })).toBe("Публикую…");
+    expect(maxPublishButtonLabel({ publishing: false, confirm: true })).toBe("Подтвердить публикацию");
   });
 });

@@ -13,7 +13,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:generate": "prisma generate",
-    "test": "bun test src/ai src/telegram src/deals src/documents src/analytics src/auth src/storage src/media src/feeds src/publishers",
+    "test": "bun test src/ai src/telegram src/max src/deals src/documents src/analytics src/auth src/storage src/media src/feeds src/publishers src/routes/__tests__",
     "test:golden": "bun test src/ai/__tests__/golden.integration.test.ts",
     "test:deals": "bun test src/deals src/documents",
     "hash-password": "tsx scripts/hash-password.ts"

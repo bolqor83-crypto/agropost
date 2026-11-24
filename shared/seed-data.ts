@@ -664,10 +664,11 @@ export const SEED_CHANNELS: SeedChannel[] = [
     accountId: null,
     notes:
       "MAX-канал: Ростов, Батайск, Аксай, Азов, Таганрог, Шахты, Новочеркасск. " +
-      "Подача ботом — имя не зафиксировано.",
+      "ЭТАП 10: публикация MAX-ботом — добавьте своего бота админом канала.",
     submissionMethod: "BOT",
     confirmationStatus: "CONFIRMED",
     audienceType: "REGIONAL",
+    automationLevel: "AUTO",
   },
   {
     id: "ch-max-krasnodar",
@@ -681,10 +682,13 @@ export const SEED_CHANNELS: SeedChannel[] = [
     averageReach: null,
     activityDaysAgo: 1,
     accountId: null,
-    notes: "MAX-барахолка Краснодарского края.",
-    submissionMethod: "ADMIN_CONTACT",
+    notes:
+      "MAX-барахолка Краснодарского края. ЭТАП 10: публикация MAX-ботом " +
+      "(бот — админ канала).",
+    submissionMethod: "BOT",
     confirmationStatus: "CONFIRMED",
     audienceType: "REGIONAL",
+    automationLevel: "AUTO",
   },
   {
     id: "ch-max-dinskoy",
@@ -698,10 +702,13 @@ export const SEED_CHANNELS: SeedChannel[] = [
     averageReach: null,
     activityDaysAgo: null,
     accountId: null,
-    notes: "MAX-барахолка Динского района.",
+    notes:
+      "MAX-барахолка Динского района. ЭТАП 10: публикация MAX-ботом " +
+      "(бот — админ канала).",
     submissionMethod: "BOT",
     confirmationStatus: "CONFIRMED",
     audienceType: "REGIONAL",
+    automationLevel: "AUTO",
   },
   {
     id: "ch-max-darom-tag",
@@ -733,11 +740,14 @@ export const SEED_CHANNELS: SeedChannel[] = [
     averageReach: null,
     activityDaysAgo: null,
     accountId: null,
-    notes: "MAX-зеркало TG-канала @farmers_market_dnr_lnr.",
-    submissionMethod: "ADMIN_CONTACT",
+    notes:
+      "MAX-зеркало TG-канала @farmers_market_dnr_lnr. ЭТАП 10: публикация " +
+      "MAX-ботом (бот — админ канала, ID чата подставится после добавления бота).",
+    submissionMethod: "BOT",
     confirmationStatus: "CONFIRMED",
     mirrorOf: "ch-farmers-dnr",
     audienceType: "B2B",
+    automationLevel: "AUTO",
   },
   {
     id: "ch-novocherkassk",

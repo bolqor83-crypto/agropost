@@ -289,7 +289,7 @@ export function MoreScreen() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-ink">Настройки</p>
-            <p className="text-[12px] font-medium text-soft">Авито API, фиды площадкам, реквизиты, тёмная тема</p>
+            <p className="text-[12px] font-medium text-soft">Авито API, MAX, userbot, фиды, реквизиты, тема</p>
           </div>
           <ChevronRight size={16} className="shrink-0 text-soft" />
         </button>

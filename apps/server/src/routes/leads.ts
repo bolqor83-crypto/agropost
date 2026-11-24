@@ -156,17 +156,61 @@ export async function leadsRoutes(app: FastifyInstance): Promise<void> {
       return response;
     }
 
-    /* Режим 2: отправка готового текста через бота. */
+    /* Режим 2: отправка готового текста через бота (Telegram или MAX). */
     const text = input.text!;
-    if (lead.source !== "TELEGRAM_BOT" && lead.source !== "TELEGRAM_CHAT") {
+    if (lead.source !== "TELEGRAM_BOT" && lead.source !== "TELEGRAM_CHAT" && lead.source !== "MAX") {
       throw new ApiError(
         400,
         "UNSUPPORTED_SOURCE",
-        "Отправка через бота доступна только для Telegram-лидов",
+        "Отправка через бота доступна только для Telegram- и MAX-лидов",
       );
     }
     if (!lead.externalId) {
-      throw badRequest("У лида нет Telegram-контакта (externalId)");
+      throw badRequest("У лида нет контакта для ответа (externalId)");
+    }
+
+    /* ЭТАП 10: лид из MAX — отвечаем через MAX-бота (user_id). */
+    if (lead.source === "MAX") {
+      const { resolveMaxDeps } = await import("../max/runtime.js");
+      const maxDeps = await resolveMaxDeps();
+      if (!maxDeps) {
+        throw new ApiError(503, "MAX_NOT_CONFIGURED", "MAX-бот не настроен: задайте MAX_BOT_TOKEN или введите токен в «Настройки → MAX»");
+      }
+      const userId = Number(lead.externalId);
+      if (!Number.isFinite(userId)) {
+        throw badRequest("У лида некорректный MAX user_id (externalId)");
+      }
+      let sent;
+      try {
+        sent = await maxDeps.api.sendMessage({ userId }, text);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "неизвестная ошибка";
+        throw new ApiError(502, "SEND_FAILED", `MAX не отправил сообщение: ${reason}`);
+      }
+      const message = await prisma.message.create({
+        data: {
+          leadId: lead.id,
+          direction: "OUTBOUND",
+          text,
+          telegramMessageId: sent.mid ?? null,
+          aiGenerated: Boolean(input.aiCallId),
+          aiCallId: input.aiCallId ?? null,
+        },
+      });
+      if (lead.status !== "SPAM" && lead.status !== "CLOSED") {
+        await prisma.lead.update({ where: { id: lead.id }, data: { status: "ANSWERED" } });
+      }
+      return {
+        ok: true,
+        message: {
+          id: message.id,
+          direction: "OUTBOUND" as const,
+          text: message.text,
+          sentAt: message.sentAt.toISOString(),
+          aiGenerated: message.aiGenerated,
+          aiCallId: message.aiCallId,
+        },
+      };
     }
 
     const telegram = getTelegram();

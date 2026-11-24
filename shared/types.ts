@@ -404,7 +404,7 @@ export interface ParserRunDTO {
 
 /* ---------- Этап 3.2: инбокс (лиды) и Telegram-бот ---------- */
 
-export type LeadSource = "TELEGRAM_BOT" | "TELEGRAM_CHAT" | "AVITO" | "MANUAL";
+export type LeadSource = "TELEGRAM_BOT" | "TELEGRAM_CHAT" | "MAX" | "AVITO" | "MANUAL";
 export type LeadStatus = "NEW" | "IN_PROGRESS" | "ANSWERED" | "CLOSED" | "SPAM";
 export type MessageDirection = "INBOUND" | "OUTBOUND";
 
@@ -553,6 +553,87 @@ export interface AvitoPublishDTO {
   publishedAt: string;
   /** Статус обработки на стороне Авито (id загрузки/текущее состояние). */
   uploadStatus: string | null;
+}
+
+/* ---------- ЭТАП 10: MAX Bot API + userbot для чтения ---------- */
+
+/** Ответ GET /api/max/status. */
+export interface MaxStatusDTO {
+  ok: true;
+  /** MAX-бот настроен (env или Настройки → MAX). */
+  configured: boolean;
+  configuredFrom: "env" | "settings" | "none";
+  /** Транспорт апдейтов: long polling (webhook — опция, см. README). */
+  mode: "long-polling";
+  /** Бот: никнейм и диплинк https://max.ru/<username>. */
+  bot: { username: string | null; url: string | null } | null;
+  newLeads: number;
+  leadsToday: number;
+  /** MAX-каналы каталога с привязкой chat_id (если она есть). */
+  channels: { channelId: string; name: string; chatId: number | null }[];
+  /** Чаты, найденные ботом (bot_added) — можно привязать к каналам. */
+  discovered: { chatId: number; title: string | null; type: string }[];
+}
+
+/** GET /api/max/settings — токен маскируется. */
+export interface MaxSettingsDTO {
+  /** Токен задан (в env или в Настройках) — сам токен не отдаём. */
+  tokenSet: boolean;
+  ownerId: number | null;
+  /** true — токен задан через env, в UI недоступен для правки. */
+  fromEnv: boolean;
+}
+
+/** PUT /api/max/settings. */
+export interface MaxSettingsInput {
+  token?: string | null;
+  ownerId?: number | null;
+}
+
+/** Ответ POST /api/max/check — «Проверить подключение» (GET /me). */
+export interface MaxCheckDTO {
+  ok: true;
+  /** Бот ответил на GET /me. */
+  botOk: boolean;
+  username: string | null;
+  firstName: string | null;
+  /** Человеческая причина ошибки (токен отозван и т.п.). */
+  error?: string;
+}
+
+/** Ответ POST /api/max/publish. */
+export interface MaxPublishDTO {
+  ok: true;
+  listingId: string;
+  /** chat_id канала, куда опубликовали (привязка сохранена). */
+  chatId: number;
+  /** Публичная ссылка на пост в MAX (если платформа вернула). */
+  url: string | null;
+  publishedAt: string;
+  warning?: string;
+}
+
+/** Ответ GET /api/userbot/status — сервис чтения чужих Telegram-чатов. */
+export interface UserbotStatusDTO {
+  ok: true;
+  /** Креды userbot заданы (env TELEGRAM_SESSION + api_id/hash). */
+  configured: boolean;
+  configuredFrom: "env" | "none";
+  /** Живой статус сервиса (AppSetting userbotStatus, пишет Python-сервис). */
+  service: {
+    connected: boolean;
+    chats: number;
+    lastMessageAt: string | null;
+    leadsToday: number;
+    version: string | null;
+  } | null;
+  /** Чаты, которые читает userbot (env CHATS_TO_READ или «Добавить чат»). */
+  chats: string[];
+}
+
+/** POST /api/userbot/chats {chat} — нормализованный @username. */
+export interface UserbotChatInput {
+  chat: string;
 }
 
 /** PATCH /api/leads/:id — статус, заметка, интерес, позиция. */

@@ -9,8 +9,9 @@ import { Bot, Inbox as InboxIcon, Search, Send } from "lucide-react";
 import type { LeadDTO, LeadStatus } from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
-import { Btn, Card, EmptyState, ScreenHeader, Segmented, Skeleton, TextInput } from "../components/ui";
+import { Btn, Card, Chip, EmptyState, ScreenHeader, Segmented, Skeleton, TextInput } from "../components/ui";
 import { LeadDetailSheet } from "../components/LeadDetailSheet";
+import { leadSourceBadge } from "../lib/lead-source";
 
 type InboxFilter = "all" | "new" | "progress" | "answered" | "spam";
 
@@ -74,6 +75,13 @@ function LeadRow({ lead, onOpen }: { lead: LeadDTO; onOpen: () => void }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="min-w-0 truncate text-[14px] font-semibold text-ink">{leadTitle(lead)}</p>
+          {/* ЭТАП 10: бейдж источника — TG-чат (userbot) / MAX / Авито. */}
+          {(() => {
+            const badge = leadSourceBadge(lead.source);
+            return badge.hidden ? null : (
+              <Chip tone={badge.tone} className="shrink-0">{badge.label}</Chip>
+            );
+          })()}
           {lead.status === "NEW" && (
             <span className="shrink-0 rounded-full bg-warm-soft px-2 py-0.5 text-[11px] font-semibold text-warm">
               новый
@@ -148,7 +156,7 @@ export function InboxScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Инбокс" caption="Покупатели из Telegram-бота отвечают здесь" />
+      <ScreenHeader title="Инбокс" caption="Покупатели из Telegram-бота и MAX — отвечаетесь здесь" />
 
       <div className="px-5">
         <div className="relative">

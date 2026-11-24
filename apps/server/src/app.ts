@@ -42,6 +42,8 @@ import { carrierRoutes } from "./routes/carriers.js";
 import { analyticsRoutes } from "./routes/analytics.js";
 import { feedRoutes } from "./feeds/routes.js";
 import { avitoRoutes } from "./publishers/avito/routes.js";
+import { maxRoutes } from "./max/routes.js";
+import { userbotRoutes, userbotEnvConfigured } from "./routes/userbot.js";
 import { getTelegram } from "./telegram/index.js";
 import { getStorage } from "./storage/factory.js";
 import { readFeedToken } from "./feeds/config.js";
@@ -79,6 +81,19 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     app.log.warn(
       "FEED_TOKEN не задан — фиды площадок отключены (/api/feeds/* отвечает 403). " +
         "Сгенерируйте токен (openssl rand -hex 16) и задайте его в env — см. README «Как подключить YML-фид»",
+    );
+  }
+
+  /* ЭТАП 10: MAX Bot API и userbot — честное предупреждение без кредов.
+     (Здесь только env-проверка: БД на этапе сборки не трогаем.) */
+  if (!process.env.MAX_BOT_TOKEN) {
+    app.log.warn(
+      "MAX_BOT_TOKEN не задан — MAX-бот не работает (руководство — README «Как подключить MAX»). Приложение работает как раньше",
+    );
+  }
+  if (!userbotEnvConfigured()) {
+    app.log.warn(
+      "TELEGRAM_SESSION/TG_API_ID не заданы — userbot (чтение чужих TG-чатов) не запущен. См. README «Как настроить userbot»",
     );
   }
 
@@ -160,6 +175,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   /* ЭТАП 9: YML/Авито-фиды (публичные по токену) + API Авито. */
   await app.register(feedRoutes);
   await app.register(avitoRoutes);
+
+  /* ЭТАП 10: MAX Bot API + userbot (чтение чужих TG-чатов). */
+  await app.register(maxRoutes);
+  await app.register(userbotRoutes);
 
   /* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
   const telegram = getTelegram();

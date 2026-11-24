@@ -262,6 +262,7 @@ export const leadStatusSchema = z.enum([
 export const leadSourceSchema = z.enum([
   "TELEGRAM_BOT",
   "TELEGRAM_CHAT",
+  "MAX",
   "AVITO",
   "MANUAL",
 ]);

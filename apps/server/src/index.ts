@@ -28,3 +28,18 @@ if (telegram.api) {
     error: (err) => app.log.error(err),
   });
 }
+
+/* ЭТАП 10: MAX-бот — long polling апдейтов (GET /updates, marker),
+   стартует фоном, если задан токен (env ⋁ Настройки → MAX).
+   Ошибки внутри цикла не роняют сервис (backoff в poller.ts). */
+const { buildMaxDeps } = await import("./max/runtime.js");
+const { startMaxPolling } = await import("./max/poller.js");
+const maxDeps = await buildMaxDeps();
+if (maxDeps) {
+  startMaxPolling(maxDeps, {
+    info: (msg) => app.log.info(msg),
+    error: (err) => app.log.error(err),
+  });
+} else {
+  app.log.info("MAX-бот не настроен — long polling не запускается (приложение работает как раньше)");
+}

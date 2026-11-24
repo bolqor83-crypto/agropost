@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Copy, FileCode2, IdCard, Megaphone, Upload } from "lucide-react";
+import { Bot, ChevronRight, Copy, Eye, FileCode2, IdCard, Megaphone, Upload } from "lucide-react";
 import type { FeedsInfoDTO } from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
@@ -108,6 +108,42 @@ export function SettingsScreen() {
               <p className="text-[14px] font-semibold text-ink">Авито API</p>
               <p className="text-[12px] font-medium text-soft">
                 Ключи Автозагрузки — публикация без браузера
+              </p>
+            </div>
+            <ChevronRight size={16} className="shrink-0 text-soft" />
+          </button>
+
+          {/* ЭТАП 10: MAX Bot API — токен, проверка, chat_id каналов. */}
+          <button
+            type="button"
+            onClick={() => navigate("/settings/max")}
+            className="press mt-2 flex w-full items-center gap-3 rounded-[14px] bg-subtle px-3.5 py-3 text-left"
+          >
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-surface text-accent">
+              <Bot size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-ink">MAX</p>
+              <p className="text-[12px] font-medium text-soft">
+                Бот MAX — вопросы покупателей и автопостинг в свои каналы
+              </p>
+            </div>
+            <ChevronRight size={16} className="shrink-0 text-soft" />
+          </button>
+
+          {/* ЭТАП 10: userbot — чтение чужих TG-чатов (только чтение). */}
+          <button
+            type="button"
+            onClick={() => navigate("/settings/userbot")}
+            className="press mt-2 flex w-full items-center gap-3 rounded-[14px] bg-subtle px-3.5 py-3 text-left"
+          >
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-surface text-accent">
+              <Eye size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-ink">Userbot (чтение)</p>
+              <p className="text-[12px] font-medium text-soft">
+                Чтение чужих Telegram-чатов — заказы не пропускаются
               </p>
             </div>
             <ChevronRight size={16} className="shrink-0 text-soft" />

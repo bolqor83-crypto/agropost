@@ -87,7 +87,7 @@ export interface TgApi {
 
 /* ---------- Доступ к данным (для тестов — фейк поверх массивов) ---------- */
 
-export type LeadSourceValue = "TELEGRAM_BOT" | "TELEGRAM_CHAT" | "AVITO" | "MANUAL";
+export type LeadSourceValue = "TELEGRAM_BOT" | "TELEGRAM_CHAT" | "MAX" | "AVITO" | "MANUAL";
 export type LeadStatusValue = "NEW" | "IN_PROGRESS" | "ANSWERED" | "CLOSED" | "SPAM";
 export type MessageDirectionValue = "INBOUND" | "OUTBOUND";
 

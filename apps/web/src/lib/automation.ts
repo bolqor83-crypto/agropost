@@ -81,3 +81,27 @@ export function avitoButtonLabel(step: AvitoFlowStep): string {
       return "Опубликовать на Авито";
   }
 }
+
+/* ---------- ЭТАП 10: публикация в свой MAX-канал через бота ---------- */
+
+/** MAX-канал в мастере: показываем кнопку публикации MAX-ботом. */
+export function isMaxChannel(channel: ChannelDTO | null): boolean {
+  return channel !== null && channel.type === "MAX";
+}
+
+/** Подпись кнопки публикации в MAX (флоу с подтверждением 24 ч). */
+export function maxPublishButtonLabel(opts: {
+  publishing: boolean;
+  confirm: boolean;
+}): string {
+  if (opts.publishing) return "Публикую…";
+  return opts.confirm ? "Подтвердить публикацию" : "Опубликовать в MAX";
+}
+
+/** Привязка chat_id для MAX-канала из статуса (status.channels). */
+export function maxChannelChatId(
+  channelId: string,
+  channels: { channelId: string; chatId: number | null }[] | undefined,
+): number | null {
+  return channels?.find((c) => c.channelId === channelId)?.chatId ?? null;
+}

@@ -30,6 +30,7 @@ import type {
   AvitoStatusDTO,
   ChannelDTO,
   ListingDTO,
+  MaxStatusDTO,
   PositionDTO,
   RotationDTO,
   SuggestedChannelDTO,
@@ -38,7 +39,7 @@ import type {
 import type { AiListingData, AiMeta } from "@shared/ai";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
-import { automationBadge, AVITO_FLOW_INITIAL, avitoButtonLabel, isAvitoChannel, type AvitoFlowState } from "../lib/automation";
+import { automationBadge, AVITO_FLOW_INITIAL, avitoButtonLabel, isAvitoChannel, isMaxChannel, maxChannelChatId, maxPublishButtonLabel, type AvitoFlowState } from "../lib/automation";
 import { CHANNEL_ICON } from "../features/channels/icons";
 import { useActivityStore, usePublishStore, useToastStore } from "../stores/publish";
 import { useCatalog } from "../stores/catalog";
@@ -300,6 +301,11 @@ export function PublishScreen() {
   const [avitoStatus, setAvitoStatus] = useState<AvitoStatusDTO | null>(null);
   const [avitoFlow, setAvitoFlow] = useState<Record<string, AvitoFlowState>>({});
 
+  /* ЭТАП 10: MAX Bot API — статус бота + флоу публикации (подтверждение 24 ч). */
+  const [maxStatus, setMaxStatus] = useState<MaxStatusDTO | null>(null);
+  const [maxPublishing, setMaxPublishing] = useState<Record<string, boolean>>({});
+  const [maxChatInput, setMaxChatInput] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (step !== 3) return;
     api
@@ -310,6 +316,10 @@ export function PublishScreen() {
       .getAvitoStatus()
       .then(setAvitoStatus)
       .catch(() => setAvitoStatus(null));
+    api
+      .getMaxStatus()
+      .then(setMaxStatus)
+      .catch(() => setMaxStatus(null));
   }, [step]);
 
   useEffect(() => {
@@ -527,6 +537,42 @@ export function PublishScreen() {
         [channelId]: { ...flow, step: "preview", error: null },
       }));
       showToast(err instanceof Error ? err.message : "Не удалось отправить фид");
+    }
+  };
+
+  /* ---------- ЭТАП 10: публикация в свой MAX-канал через бота ---------- */
+
+  const publishViaMax = async (channelId: string) => {
+    const draft = drafts[channelId];
+    if (!isListing(draft) || draft.status === "PUBLISHED" || maxPublishing[channelId]) return;
+    const binding = maxChannelChatId(channelId, maxStatus?.channels);
+    const chatInput = maxChatInput[channelId]?.trim();
+    const chatId = binding ?? (chatInput && /^\d+$/.test(chatInput) ? Number(chatInput) : undefined);
+    if (chatId === undefined) {
+      showToast("Укажите числовой ID канала в MAX (bot_added прислал его в Настройках)");
+      return;
+    }
+    setMaxPublishing((s) => ({ ...s, [channelId]: true }));
+    try {
+      const res = await api.maxPublish(draft.id, {
+        chatId,
+        confirm: confirm24h[channelId] === true,
+      });
+      const updated = await api.updateListing(draft.id, { status: "PUBLISHED" }).catch(() => null);
+      setDrafts((d) => ({
+        ...d,
+        [channelId]: updated ?? { ...draft, status: "PUBLISHED" as const, url: res.url },
+      }));
+      showToast(res.url ? "Опубликовано в MAX — ссылка под текстом" : "Опубликовано в MAX");
+    } catch (err) {
+      if (err instanceof api.ApiError && err.status === 409) {
+        setConfirm24h((s) => ({ ...s, [channelId]: true }));
+        showToast("Уже была публикация за 24 ч — нажмите ещё раз для подтверждения");
+      } else {
+        showToast(err instanceof Error ? err.message : "Не удалось опубликовать в MAX");
+      }
+    } finally {
+      setMaxPublishing((s) => ({ ...s, [channelId]: false }));
     }
   };
 
@@ -885,7 +931,7 @@ export function PublishScreen() {
                       className="press mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-accent"
                     >
                       <ExternalLink size={13} className="shrink-0" />
-                      Открыть в Telegram
+                      {ch?.type === "MAX" ? "Открыть в MAX" : "Открыть в Telegram"}
                     </a>
                   )}
                   {isListing(draft) && !published && botEligible(ch ?? draft.channel) && (
@@ -975,6 +1021,73 @@ export function PublishScreen() {
                         </div>
                       );
                     })()}
+                  {/* ЭТАП 10 (MAX): ключи не заданы — честный warning,
+                   * публикация вручную, приложение работает как раньше. */}
+                  {isMaxChannel(ch) && maxStatus !== null && !maxStatus.configured && (
+                    <div className="mt-2 rounded-[14px] bg-warm-soft px-3.5 py-3">
+                      <p className="text-[12px] font-semibold text-warm">
+                        MAX-бот не настроен
+                      </p>
+                      <p className="mt-0.5 text-[11.5px] font-medium leading-relaxed text-soft">
+                        Подключите токен в «Ещё» → «Настройки» → «MAX» — и публикация в свои
+                        MAX-каналы станет автоматической. Пока размещайте вручную: скопируйте
+                        текст и вставьте в канал.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* ЭТАП 10 (MAX): кнопка публикации ботом — с chat_id,
+                   * если привязка ещё не сохранена. */}
+                  {isMaxChannel(ch) && maxStatus?.configured && !published && (
+                    <div className="mt-2">
+                      {(() => {
+                        const binding = maxChannelChatId(id, maxStatus.channels);
+                        return binding === null ? (
+                          <div className="mb-2 rounded-[14px] bg-subtle px-3.5 py-2.5">
+                            <p className="text-[11.5px] font-semibold text-soft">
+                              ID канала в MAX (число)
+                            </p>
+                            <input
+                              value={maxChatInput[id] ?? ""}
+                              onChange={(e) => setMaxChatInput((s) => ({ ...s, [id]: e.target.value }))}
+                              inputMode="numeric"
+                              placeholder="например 486503"
+                              aria-label="ID канала в MAX"
+                              className="mt-1.5 h-10 w-full rounded-[12px] border border-line bg-surface px-3 text-[13px] font-medium text-ink outline-none focus:border-accent"
+                            />
+                            <p className="mt-1 text-[11px] font-medium text-soft">
+                              Добавьте бота в канал — ID придёт сам и привяжется
+                            </p>
+                          </div>
+                        ) : null;
+                      })()}
+                      <Btn
+                        full
+                        variant={confirm24h[id] ? "secondary" : "primary"}
+                        onClick={() => void publishViaMax(id)}
+                        disabled={maxPublishing[id]}
+                        loading={maxPublishing[id]}
+                        ariaLabel="Опубликовать в MAX"
+                      >
+                        <Zap size={15} className={maxPublishing[id] ? "animate-pulse" : ""} />
+                        {maxPublishButtonLabel({
+                          publishing: maxPublishing[id] === true,
+                          confirm: confirm24h[id] === true,
+                        })}
+                      </Btn>
+                      {maxStatus.bot?.url && (
+                        <a
+                          href={maxStatus.bot.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="press mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-accent"
+                        >
+                          <ExternalLink size={12} className="shrink-0" />
+                          Бот @{maxStatus.bot.username} — админ канала публикует сам
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </Card>
               );
             })}

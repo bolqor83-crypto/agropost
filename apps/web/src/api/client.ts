@@ -30,6 +30,12 @@ import type {
   AvitoSettingsDTO,
   AvitoSettingsInput,
   AvitoStatusDTO,
+  MaxCheckDTO,
+  MaxPublishDTO,
+  MaxSettingsDTO,
+  MaxSettingsInput,
+  MaxStatusDTO,
+  UserbotStatusDTO,
   CarrierDTO,
   CarrierInput,
   ChannelDTO,
@@ -514,6 +520,67 @@ export function avitoDryRun(): Promise<AvitoDryRunDTO> {
 /** Публикация на Авито (после подтверждения превью): upload фида. */
 export function avitoPublish(): Promise<AvitoPublishDTO> {
   return request<AvitoPublishDTO>("/avito/publish", { method: "POST", body: JSON.stringify({}) });
+}
+
+/* ---------- ЭТАП 10: MAX Bot API и userbot (чтение TG-чатов) ---------- */
+
+/** Статус MAX-бота: токен, бот, режим, каналы с привязками chat_id. */
+export function getMaxStatus(): Promise<MaxStatusDTO> {
+  return request<MaxStatusDTO>("/max/status");
+}
+
+/** Настройки MAX (токен маскирован; env — только чтение). */
+export function getMaxSettings(): Promise<MaxSettingsDTO> {
+  return request<MaxSettingsDTO>("/max/settings");
+}
+
+/** Сохранение токена MAX-бота и ID владельца (когда токен не в env). */
+export function saveMaxSettings(input: MaxSettingsInput): Promise<MaxSettingsDTO> {
+  return request<MaxSettingsDTO>("/max/settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+/** «Проверить подключение» MAX: реальный GET /me. */
+export function checkMaxConnection(): Promise<MaxCheckDTO> {
+  return request<MaxCheckDTO>("/max/check", { method: "POST", body: JSON.stringify({}) });
+}
+
+/** Публикация черновика в свой MAX-канал через бота. */
+export function maxPublish(
+  listingId: string,
+  opts?: { chatId?: number; confirm?: boolean },
+): Promise<MaxPublishDTO> {
+  return request<MaxPublishDTO>("/max/publish", {
+    method: "POST",
+    body: JSON.stringify({
+      listingId,
+      ...(opts?.chatId ? { chatId: opts.chatId } : {}),
+      ...(opts?.confirm ? { confirm: true } : {}),
+    }),
+  });
+}
+
+/** Статус userbot: креды, живой сервис, список читаемых чатов. */
+export function getUserbotStatus(): Promise<UserbotStatusDTO> {
+  return request<UserbotStatusDTO>("/userbot/status");
+}
+
+/** «Добавить чат» для чтения userbot-ом (@username/t.me-ссылка/ID). */
+export function addUserbotChat(chat: string): Promise<{ ok: true; chat: string; chats: string[] }> {
+  return request<{ ok: true; chat: string; chats: string[] }>("/userbot/chats", {
+    method: "POST",
+    body: JSON.stringify({ chat }),
+  });
+}
+
+/** Убрать чат из списка читаемых. */
+export function removeUserbotChat(chat: string): Promise<{ ok: true; chat: string; chats: string[] }> {
+  return request<{ ok: true; chat: string; chats: string[] }>("/userbot/chats", {
+    method: "DELETE",
+    body: JSON.stringify({ chat }),
+  });
 }
 
 /* ---------- Этап 3.0: AI-слой (5 use cases) ---------- */
