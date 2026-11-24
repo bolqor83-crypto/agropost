@@ -573,11 +573,20 @@ export interface DealDTO {
   deliveryMethod: DeliveryMethod;
   /** Стоимость доставки (платит покупатель, в маржу не входит). */
   deliveryCost: number | null;
+  /* Этап 5.1: доп. затраты на доставку до терминала (в себестоимости). */
+  deliveryToTerminalCost: number | null;
   deliveryPaidBy: DeliveryPaidBy;
   status: DealStatus;
   paidAt: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
+  /** Дата закрытия (аналитика по периодам считает по ней). */
+  closedAt: string | null;
+  /* Этап 5.1: снимок условий сделки — история при удалении позиции.
+     Поля поставщика — только внутри приложения (white-label). */
+  supplierName: string | null;
+  supplierLocation: string | null;
+  shippingMode: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -647,6 +656,9 @@ export interface DealCreateInput {
   taxMode?: DealTaxMode;
   deliveryMethod?: DeliveryMethod;
   deliveryCost?: number | null;
+  /* Этап 5.1: доп. затраты на доставку до терминала ТК (входят в
+     себестоимость — вычитаются из маржи). Поставщик привезёт сам — 0. */
+  deliveryToTerminalCost?: number | null;
   notes?: string;
 }
 
@@ -661,6 +673,8 @@ export interface DealUpdateInput {
   taxMode?: DealTaxMode;
   deliveryMethod?: DeliveryMethod;
   deliveryCost?: number | null;
+  /** Доп. затраты на доставку до терминала, ₽ (пересчёт маржи). */
+  deliveryToTerminalCost?: number | null;
   notes?: string | null;
   /** Разрешены только переходы статусного графа (shared/deals). */
   status?: DealStatus;
@@ -716,6 +730,11 @@ export interface DeliveryCalculateDTO {
     ai: boolean;
     model: string | null;
     note: string;
+    /* Этап 5.1: оценки ПРЕДВАРИТЕЛЬНЫЕ — не тариф перевозчика. */
+    /** true — оценка по базовой формуле, НЕ тариф ТК. */
+    estimate: boolean;
+    /** Оговорка для UI: почему цифра ориентировочная. */
+    disclaimer: string;
   };
 }
 
@@ -735,7 +754,7 @@ export interface AnalyticsTopCulture {
 /** Топ-канал по лидам в сводке. */
 export interface AnalyticsTopChannel {
   name: string;
-  /** Лиды, пришедшие с позиций, публиковавшихся в канале (последняя публикация). */
+  /** Лиды, чей последний достоверный источник — этот канал (last-touch). */
   leads: number;
   deals: number;
 }
@@ -744,13 +763,13 @@ export interface AnalyticsTopChannel {
 export interface AnalyticsSummaryDTO {
   ok: true;
   period: AnalyticsPeriod;
-  /** Выручка по закрытым (CLOSED) сделкам за период, ₽. */
+  /** Выручка по закрытым (CLOSED) сделкам за период, ₽ (отбор по closedAt). */
   revenue: number;
   /** Маржа по закрытым сделкам за период, ₽. */
   margin: number;
-  /** Сделок за период: всего (включая отменённые). */
+  /** Сделок за период: всего (включая отменённые; по createdAt). */
   dealsTotal: number;
-  /** Закрытых (CLOSED) сделок за период. */
+  /** Закрытых (CLOSED) сделок за период (по closedAt). */
   dealsClosed: number;
   /** Активных (DRAFT..DELIVERED) сделок за период. */
   dealsActive: number;
@@ -760,11 +779,11 @@ export interface AnalyticsSummaryDTO {
   topChannels: AnalyticsTopChannel[];
   /** Лидов за период (все статусы). */
   leadsTotal: number;
-  /** Лидов, ставших сделками (сделки с leadId за период). */
+  /** УНИКАЛЬНЫХ лидов, ставших сделками (лид с N сделками = 1). */
   leadsConverted: number;
-  /** Конверсия лид → сделка, % (null — лидов нет). */
+  /** Конверсия по уникальным лидам, % (null — лидов нет; не > 100). */
   conversion: number | null;
-  /** Новых лидов за сегодня. */
+  /** Новых лидов за сегодня (московский день). */
   newLeadsToday: number;
   /** true — закрытых сделок < 3: аналитика ещё «сырая». */
   lowData: boolean;
@@ -777,19 +796,22 @@ export interface AnalyticsChannelRow {
   type: ChannelType;
   region: string;
   city: string | null;
-  /** averageReach ?? subscribersCount. */
-  reach: number | null;
+  /* Этап 5.1: подписчики и фактический охват — РАЗНЫЕ показатели.
+     Подписчики — ёмкость канала; averageReach — средний факт. охват
+     публикации (если известен); null — не измерялся. НЕ смешиваем. */
+  subscribersCount: number | null;
+  averageReach: number | null;
   /** Размещений (Listing) всего. */
   listings: number;
   /** Сколько раз публиковали (сумма publishedCount). */
   publications: number;
-  /** Лиды по позициям, публиковавшимся в канале (аттрибуция по последней публикации). */
+  /** Лиды, чей последний источник — этот канал (last-touch атрибуция). */
   leads: number;
   /** Сделок из этих лидов. */
   deals: number;
-  /** Конверсия лид → сделка, % (null — лидов нет). */
+  /** Конверсия по уникальным лидам канала, % (null — лидов нет). */
   conversion: number | null;
-  /** Средняя маржа сделок по лидам канала (null — сделок нет). */
+  /** Средняя маржа закрытых сделок по лидам канала (null — нет). */
   avgMargin: number | null;
   lastPublishedAt: string | null;
   /** Дней с последней публикации (null — не публиковали). */
@@ -817,10 +839,13 @@ export interface AnalyticsPositionRow {
   revenue: number;
   /** Маржа закрытых сделок, ₽. */
   margin: number;
-  /** Средняя цена продажи по сделкам, ₽/кг (null — сделок нет). */
+  /** Средневзвешенная цена продажи: выручка / проданный объём, ₽/кг
+   * (null — закрытых сделок нет). Простое среднее цен не используем: объёмы
+   * сделок различаются. */
   avgSalePrice: number | null;
-  /** Дней с создания позиции. */
-  daysInStock: number;
+  /* Этап 5.1: дни наличия считаются от stockSince (фактическое начало
+     наличия). Для старых позиций даты нет — null = «неизвестно». */
+  daysInStock: number | null;
   /** Последняя публикация (null — не публиковали). */
   lastPublishedAt: string | null;
 }

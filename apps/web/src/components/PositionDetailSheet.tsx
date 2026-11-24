@@ -43,6 +43,8 @@ function statusTone(status: PositionDTO["status"]): "green" | "warm" | "neutral"
 function MarketRow({ positionId }: { positionId: string }) {
   const [market, setMarket] = useState<MarketDTO | null>(null);
   const [failed, setFailed] = useState(false);
+  /* Этап 5.1: парсер не настроен — честная подпись вместо пустоты. */
+  const [notConfigured, setNotConfigured] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -51,8 +53,13 @@ function MarketRow({ positionId }: { positionId: string }) {
       .then((m) => {
         if (alive) setMarket(m);
       })
-      .catch(() => {
-        if (alive) setFailed(true);
+      .catch((err: unknown) => {
+        if (!alive) return;
+        if (err instanceof api.ApiError && err.code === "PARSER_NOT_CONFIGURED") {
+          setNotConfigured(true); /* парсер не настроен — честная подпись */
+        } else {
+          setFailed(true); /* сеть/сервер — не спекулируем */
+        }
       });
     return () => {
       alive = false;
@@ -60,6 +67,21 @@ function MarketRow({ positionId }: { positionId: string }) {
   }, [positionId]);
 
   if (failed) return null;
+  if (notConfigured) {
+    return (
+      <div className="py-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-soft">
+            <TrendingUp size={13} className="text-accent" />
+            Рынок
+          </span>
+          <span className="text-[12px] font-medium text-soft">
+            парсер цен не настроен (PARSER_URL)
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const hasData = market !== null && market.count > 0;
   return (

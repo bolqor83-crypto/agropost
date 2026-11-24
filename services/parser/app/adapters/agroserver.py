@@ -8,6 +8,12 @@
 - страницы объявлений /b/*.htm robots.txt разрешает — читаем их
   с лимитом 1 запрос / 2 сек и браузерным User-Agent.
 
+Этап 5.1 (fail-closed): robots.txt ОБЯЗАТЕЛЕН. Если он недоступен —
+обход НЕ начинается (раньше ошибка загрузки трактовалась как
+«разрешено»). Причина отказа фиксируется в статусе; повторная попытка
+через час (robots_unavailable_ttl), чтобы не дёргать недоступный
+источник в цикле.
+
 Цена извлекается из ТЕКСТА страницы (regex «180 ₽/кг»…): смена вёрстки
 не ломает парсер. Если сайт закрыл контент капчей («Сервер временно
 недоступен») — фиксируем статус «blocked», НЕ падаем и НЕ пишем мусор.
@@ -45,7 +51,7 @@ BLOCK_MARKERS = ("Введите код", "Сервер временно нед�
 class AdapterStats:
     """Итоги прогона адаптера — уходят в /status и отчёт прогона."""
 
-    status: str = "idle"  # idle | ok | empty | blocked | error
+    status: str = "idle"  # idle | ok | empty | blocked | robots_unavailable | error
     pages: int = 0
     candidates: int = 0
     saved: int = 0
@@ -63,6 +69,10 @@ class AdapterStats:
             "startedAt": self.started_at,
             "finishedAt": self.finished_at,
         }
+
+
+class RobotsUnavailableError(RuntimeError):
+    """robots.txt недоступен/битый — обход запрещён (fail-closed)."""
 
 
 def parse_robots(robots_text: str) -> list[str]:
@@ -143,7 +153,7 @@ def parse_ad_page(html: str, url: str, query: str) -> dict[str, Any] | None:
         "region": None,  # регион на странице разный — не спекулируем
         "sellerName": None,  # только названия компаний, а их разметка меняется
         "link": url,
-        "rawSnippet": sanitize_snippet(snippet, 200),
+        "rawSnippet": sanitize_snippet(snippet, 120),
         "fetchedAt": datetime.now(timezone.utc),
     }
 
@@ -178,13 +188,23 @@ class AgroserverAdapter:
     )
     _robots_cache: dict[str, list[str]] = field(default_factory=dict)
     _robots_cached_at: float = 0.0
+    # Этап 5.1: недоступный robots — TTL отказа (час), чтобы не дёргать
+    # источник в цикле при каждом прогоне.
+    _robots_failed_until: float = 0.0
     limiter: RateLimiter = field(
         default_factory=lambda: RateLimiter(settings.agroserver_request_interval),
     )
 
     async def robots_rules(self) -> list[str]:
-        """robots.txt (кэш 24 ч). Ошибка загрузки — консервативно пустой список."""
+        """robots.txt (кэш 24 ч). НЕДОСТУПЕН → отказ: обход запрещён
+        (fail-closed, этап 5.1). Причина — в RobotsUnavailableError,
+        повтор через час, без бесконечного опроса."""
         now = time.time()
+        if now < self._robots_failed_until:
+            raise RobotsUnavailableError(
+                "robots.txt недоступен (последняя ошибка недавно) — "
+                "обход сайта запрещён (fail-closed)"
+            )
         if now - self._robots_cached_at < 24 * 3600 and self._robots_cache:
             return list(self._robots_cache.get("rules", []))
         try:
@@ -192,11 +212,18 @@ class AgroserverAdapter:
             res = await self.http.get(f"{settings.agroserver_base}/robots.txt")
             res.raise_for_status()
             rules = parse_robots(res.text)
-        except Exception as err:  # noqa: BLE001 — robots не должен ронять парсер
-            log.warning("robots.txt не прочитан (%s) — продолжаем осторожно", err)
-            rules = ["/search/", "/account/"]  # известные запреты из ТЗ-разведки
+            if not rules and len(res.text.strip()) == 0:
+                raise ValueError("robots.txt пуст — структура изменилась?")
+        except Exception as err:  # noqa: BLE001 — robots недоступен = запрет
+            self._robots_failed_until = now + 3600
+            log.warning("robots.txt недоступен (%s) — обход запрещён", err)
+            raise RobotsUnavailableError(
+                f"robots.txt недоступен ({type(err).__name__}: {err}) — "
+                "обход сайта запрещён (fail-closed)"
+            ) from err
         self._robots_cache["rules"] = rules
         self._robots_cached_at = now
+        self._robots_failed_until = 0.0
         return list(rules)
 
     async def sitemap_chunks(self) -> list[str]:
@@ -217,7 +244,14 @@ class AgroserverAdapter:
         stats.started_at = datetime.now(timezone.utc).isoformat()
         rows: list[dict[str, Any]] = []
         try:
-            rules = await self.robots_rules()
+            try:
+                rules = await self.robots_rules()
+            except RobotsUnavailableError as err:
+                # Fail-closed: без robots.txt обход не начинаем.
+                stats.status = "robots_unavailable"
+                stats.note = str(err)
+                log.warning("Агросервер: пропуск без robots.txt")
+                return rows, stats
             for chunk_url in await self.sitemap_chunks():
                 if not is_allowed(urlparse(chunk_url).path, rules):
                     log.info("sitemap %s запрещён robots.txt — пропускаем", chunk_url)

@@ -1,7 +1,13 @@
 """Извлечение цен из текста объявлений + обезличивание (152-ФЗ).
 
-Только цена, название и фрагмент текста: телефоны, e-mail, веб-адреса
-и «контакты» вычищаются из сниппета ДО записи в базу.
+Только цена, название и МИНИМАЛЬНЫЙ фрагмент текста: телефоны,
+@usernames, e-mail, веб-адреса и «контакты» вычищаются ДО записи.
+
+Этап 5.1 (честность): сниппет — служебный минимум для карточки цены,
+по умолчанию 120 символов. Полной анонимизации НЕ гарантируем —
+свободный текст может содержать узнаваемые детали; поэтому его
+объём урезан до необходимого. Персональные идентификаторы вычищаются
+эвристиками (телефоны/email/URL/@username).
 """
 
 from __future__ import annotations
@@ -23,9 +29,12 @@ _PHONE_RE = re.compile(
 )
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+# Этап 5.1: @usernames Telegram/соцсетей — тоже персональные
+# идентификаторы, вычищаем (раньше оставались в сниппетах).
+_USERNAME_RE = re.compile(r"(?<![\w.])@[A-Za-z0-9_]{3,}\b")
 # Имена с телефонным контекстом («Иван +7…») не вытаскиваем вовсе.
 
-SANITIZE_RE_LIST = [_PHONE_RE, _EMAIL_RE, _URL_RE]
+SANITIZE_RE_LIST = [_PHONE_RE, _EMAIL_RE, _URL_RE, _USERNAME_RE]
 
 
 def parse_price_per_kg(text: str) -> float | None:
@@ -45,8 +54,14 @@ def parse_price_per_kg(text: str) -> float | None:
     return price
 
 
-def sanitize_snippet(text: str, max_len: int = 160) -> str:
-    """Фрагмент объявления без телефонов, e-mail и ссылок (152-ФЗ)."""
+def sanitize_snippet(text: str, max_len: int = 120) -> str:
+    """Фрагмент объявления без телефонов, @usernames, e-mail и ссылок.
+
+    Этап 5.1: максимум по умолчанию 120 символов — служебный минимум
+    (цена/товар/условия), а не база текстов. Анонимность НЕ гарантируем
+    на 100%: эвристики вычищают известные идентификаторы, свободный
+    текст может содержать узнаваемые детали — поэтому его объём урезан.
+    """
     cleaned = text
     for regex in SANITIZE_RE_LIST:
         cleaned = regex.sub("…", cleaned)
@@ -60,7 +75,7 @@ def sanitize_snippet(text: str, max_len: int = 160) -> str:
     return cleaned
 
 
-def snippet_around_price(text: str, max_len: int = 160) -> str:
+def snippet_around_price(text: str, max_len: int = 120) -> str:
     """Сниппет вокруг найденной цены (проще для чтения в карточке)."""
     match = _PRICE_RE.search(text)
     if not match:

@@ -32,7 +32,7 @@ log = logging.getLogger("agropost.parser.telegram")
 class TelegramStats:
     """Итоги прогона TG-адаптера (зеркало AdapterStats Агросервера)."""
 
-    status: str = "idle"  # idle | ok | empty | skipped | limited | error
+    status: str = "idle"  # idle | ok | empty | disabled | skipped | limited | error
     channels: int = 0
     messages: int = 0
     saved: int = 0
@@ -55,6 +55,13 @@ class TelegramStats:
 def configured() -> bool:
     """Есть ли креды отдельного аккаунта (для /health и /status)."""
     return bool(settings.tg_api_id and settings.tg_api_hash)
+
+
+def collect_enabled() -> bool:
+    """Этап 5.1: сбор реально разрешён? По умолчанию ВЫКЛЮЧЕН —
+    MTProto-сбор публичных каналов ограничен условиями Telegram;
+    включается владельцем явно для источников с подтверждённым правом."""
+    return settings.tg_collect_enabled
 
 
 def _stem(word: str) -> str:
@@ -103,7 +110,7 @@ def extract_rows_from_messages(
                 "region": None,
                 "sellerName": None,  # ФИО отправителей не храним (152-ФЗ)
                 "link": link,
-                "rawSnippet": sanitize_snippet(text, 200),
+                "rawSnippet": sanitize_snippet(text, 120),
                 "fetchedAt": datetime.now(timezone.utc),
             },
         )
@@ -119,6 +126,10 @@ class TelegramAdapter:
     def configured(self) -> bool:
         return configured()
 
+    def collect_enabled(self) -> bool:
+        """Этап 5.1: выключен по умолчанию (TG_COLLECT_ENABLED=0)."""
+        return collect_enabled()
+
     async def collect(self, queries: list[str]) -> tuple[list[dict[str, Any]], TelegramStats]:
         """Собрать цены из TG_CHANNELS. Не бросает исключений наружу."""
         stats = TelegramStats()
@@ -129,6 +140,14 @@ class TelegramAdapter:
             stats.note = (
                 "нет TG_API_ID/TG_API_HASH в .env — Telegram-адаптер отключён "
                 "(graceful-skip); передайте креды отдельного аккаунта"
+            )
+            return rows, stats
+        if not self.collect_enabled():
+            stats.status = "disabled"
+            stats.note = (
+                "MTProto-сбор публичных каналов выключен по умолчанию "
+                "(TG_COLLECT_ENABLED=0) — включите только для источников, "
+                "на обработку которых есть подтверждённое право"
             )
             return rows, stats
         if len(settings.tg_channels) > settings.tg_max_channels:

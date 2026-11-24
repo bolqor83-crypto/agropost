@@ -1,78 +1,13 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import "dotenv/config";
-import { healthRoutes } from "./routes/health.js";
-import { metaRoutes } from "./routes/meta.js";
-import { supplierRoutes } from "./routes/suppliers.js";
-import { cultureRoutes } from "./routes/cultures.js";
-import { positionRoutes } from "./routes/positions.js";
-import { mediaRoutes } from "./routes/media.js";
-import { userRoutes } from "./routes/user.js";
-import { channelRoutes } from "./routes/channels.js";
-import { accountRoutes } from "./routes/accounts.js";
-import { listingRoutes } from "./routes/listings.js";
-import { parserRoutes } from "./routes/parser.js";
-import { aiRoutes } from "./routes/ai.js";
-import { leadsRoutes } from "./routes/leads.js";
-import { telegramRoutes } from "./routes/telegram.js";
-import { telegramWebhookRoutes } from "./routes/telegramWebhook.js";
-import { dealsRoutes } from "./routes/deals.js";
-import { claimsRoutes } from "./routes/claims.js";
-import { carrierRoutes } from "./routes/carriers.js";
-import { analyticsRoutes } from "./routes/analytics.js";
-import { getTelegram, setupWebhookAtStartup } from "./telegram/index.js";
-import { registerErrorHandler } from "./errors.js";
-
 /**
- * АгроПост API.
- * Этап 1: поставщики, шаблоны культур, позиции (JSONB-атрибуты),
- * медиа и сертификаты (presigned uploads в R2), профиль пользователя.
- * Этап 2: каналы, аккаунты, умный подбор и размещения (шаблонный текст).
- * Этап 3.0: /api/ai/* — пять use cases (GLM через Z.AI, OpenRouter — резерв).
- * Этап 3.2: Telegram-бот (webhook + секрет), инбокс /api/leads,
- * автопостинг в свои каналы через бота.
- * Этап 4: сделки, калькулятор доставки, PDF-документы (pdfmake),
- * рекламации, справочник ТК, реквизиты профиля.
- * Этап 5: аналитика (сводка/каналы/позиции по запросу), расширенный
- * контекст советника, чек-лист «Перед запуском».
- *
- * Все ошибки — единый формат { error: { code, message } }.
- * Стек: tsx в рантайме (shared/ лежит вне apps/server, emit не нужен).
+ * Точка входа API АгроПост. Сборка приложения — в app.ts (этап 5.1:
+ * авторизация владельца + закрытые приватные маршруты).
  */
 
-const app = Fastify({
-  logger: true,
-});
+import { buildApp } from "./app.js";
+import { getTelegram, setupWebhookAtStartup } from "./telegram/index.js";
+import "dotenv/config";
 
-await app.register(cors, {
-  origin: true,
-});
-
-/* Обработчик ошибок — ДО маршрутов: единый формат {error:{code,message}} */
-registerErrorHandler(app);
-
-await app.register(healthRoutes);
-await app.register(metaRoutes);
-await app.register(supplierRoutes);
-await app.register(cultureRoutes);
-await app.register(positionRoutes);
-await app.register(mediaRoutes);
-await app.register(userRoutes);
-await app.register(channelRoutes);
-await app.register(accountRoutes);
-await app.register(listingRoutes);
-await app.register(parserRoutes);
-await app.register(aiRoutes);
-await app.register(leadsRoutes);
-await app.register(telegramRoutes);
-await app.register(dealsRoutes);
-await app.register(claimsRoutes);
-await app.register(carrierRoutes);
-await app.register(analyticsRoutes);
-
-/* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
-const telegram = getTelegram();
-await app.register(telegramWebhookRoutes(telegram.deps));
+const app = await buildApp();
 
 const port = Number(process.env.PORT ?? 3001);
 
@@ -83,7 +18,10 @@ try {
   process.exit(1);
 }
 
-/* setWebhook при старте (фоном): free tier просыпается апдейтом. */
+/* setWebhook при старте (фоном): free tier просыпается апдейтом.
+   URL — ТОЛЬКО из серверной конфигурации (TELEGRAM_WEBHOOK_URL или
+   RENDER_EXTERNAL_URL): клиент произвольный адрес задать не может. */
+const telegram = getTelegram();
 if (telegram.api) {
   void setupWebhookAtStartup(telegram.api, telegram.cfg, {
     info: (msg) => app.log.info(msg),

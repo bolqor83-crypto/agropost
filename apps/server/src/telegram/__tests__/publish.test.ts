@@ -89,7 +89,7 @@ describe("publishListingViaBot", () => {
     expect(sent).toBeDefined();
     expect(sent?.opts?.parseMode).toBe("HTML");
     expect(sent?.text).toContain("<b>Пшеница 3 класс, 120 т</b>");
-    expect(sent?.text).toContain("https://t.me/agropost_test_bot?start=pos_pos-1");
+    expect(sent?.text).toContain("https://t.me/agropost_test_bot?start=lst_li-1");
 
     expect(notify.publishErrors.length).toBe(0);
   });
@@ -159,25 +159,29 @@ describe("publishListingViaBot", () => {
     api.addPublicChannel("agropost_channel", { memberStatus: "creator" });
     const { deps } = makeDeps(db, api);
 
-    await publishListingViaBot({ listingId: "li-1" }, deps);
-    expect(db.listings[0].status).toBe("PUBLISHED");
+    /* Двойная публикация = 2 паузы 2.5 с — таймаут щедрый. */
+    const publish = async () => {
+      await publishListingViaBot({ listingId: "li-1" }, deps);
+      expect(db.listings[0].status).toBe("PUBLISHED");
 
-    /* Новый черновик в тот же канал — с подтверждением. */
-    db.listings.push({
-      id: "li-2",
-      positionId: "pos-2",
-      channelId: "ch-1",
-      text: "Ячмень 2 класс, 50 т\nЦена: 12 ₽/кг.",
-      status: "DRAFT",
-      publishedAt: null,
-      publishedCount: 0,
-      url: null,
-    });
+      /* Новый черновик в тот же канал — с подтверждением. */
+      db.listings.push({
+        id: "li-2",
+        positionId: "pos-2",
+        channelId: "ch-1",
+        text: "Ячмень 2 класс, 50 т\nЦена: 12 ₽/кг.",
+        status: "DRAFT",
+        publishedAt: null,
+        publishedCount: 0,
+        url: null,
+      });
 
-    const result = await publishListingViaBot({ listingId: "li-2", confirm: true }, deps);
-    expect(db.listings[1].status).toBe("PUBLISHED");
-    expect(result.listingId).toBe("li-2");
-  });
+      const result = await publishListingViaBot({ listingId: "li-2", confirm: true }, deps);
+      expect(db.listings[1].status).toBe("PUBLISHED");
+      expect(result.listingId).toBe("li-2");
+    };
+    await publish();
+  }, 15000);
 
   test("малая аудитория: предупреждение, но публикация проходит", async () => {
     const db = new MemoryDb();

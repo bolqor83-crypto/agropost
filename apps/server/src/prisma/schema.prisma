@@ -158,6 +158,10 @@ model SupplierPosition {
   minLotKg       Int
   hasCertificate Boolean          @default(false)
   status         PositionStatus   @default(IN_STOCK)
+  /* Этап 5.1: фактическое начало наличия — не createdAt. Для старых
+     позиций null = «неизвестно» (не выдумываем дату). Заполняется при
+     создании со статусом IN_STOCK и при возврате в IN_STOCK. */
+  stockSince     DateTime?
   media          Media[]
   certificates   Certificate[]
   listings       Listing[]
@@ -388,12 +392,44 @@ model Lead {
   updatedAt        DateTime          @updatedAt
   /* Этап 4: сделки, созданные из лида. */
   deals            Deal[]
+  /* Этап 5.1: настоящая аттрибуция источника (deep link объявления).
+     First Touch — первый достоверно известный источник; Last Touch —
+     последний. Простые колонки без FK: канал/объявление могут быть
+     удалены — тогда аналитика честно покажет «канал удалён».
+     Старые ссылки pos_... эти поля не заполняют (источник неизвестен). */
+  firstListingId   String?
+  firstChannelId   String?
+  lastListingId    String?
+  lastChannelId    String?
+  /// История касаний объявлений (LeadTouch).
+  touches          LeadTouch[]
 
   @@index([source])
   @@index([status])
   @@index([externalId])
   @@index([positionId])
+  @@index([lastChannelId])
+  @@index([firstChannelId])
   @@unique([source, externalId])
+}
+
+/// Касание лида объявлением (этап 5.1): переход по deep link
+/// t.me/{bot}?start=lst_{listingId}. История обращений одного
+/// покупателя из разных объявлений/каналов.
+model LeadTouch {
+  id         String   @id @default(cuid())
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId     String
+  /// Объявление, по которому пришли (id Listing; без FK — листинг
+  /// может быть удалён, история касаний остаётся).
+  listingId  String
+  /// Канал объявления на момент касания (без FK, аналогично).
+  channelId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([leadId, listingId])
+  @@index([leadId])
+  @@index([channelId])
 }
 
 model Message {
@@ -528,6 +564,29 @@ model Deal {
   paidAt        DateTime?
   shippedAt    DateTime?
   deliveredAt   DateTime?
+  /* Этап 5.1: дата закрытия — аналитика выручки по периодам считается
+     по ней, а не по createdAt. Старым закрытым сделкам дату не выдумываем:
+     остаётся null (учитываются только в периоде «всё время»). */
+  closedAt      DateTime?
+  /* Этап 5.1: снимок условий сделки на момент создания — история не
+     теряется при изменении/удалении позиции поставщика. Данные
+     поставщика — только внутри приложения, в документы покупателю не
+     попадают (white-label). */
+  /// positionName на момент создания.
+  itemName          String?
+  /// Культура из снимка.
+  itemCulture       String?
+  /// Атрибуты позиции на момент создания.
+  itemAttributes    Json?
+  /// Название поставщика на момент создания (только для владельца).
+  supplierName      String?
+  /// Место отгрузки поставщика (метка) на момент создания.
+  supplierLocation  String?
+  /// Способ передачи груза поставщика на момент создания.
+  shippingMode      String?
+  /// Доп. затраты на доставку до терминала ТК (₽) — входят в
+  /// себестоимость: вычитаются из маржи. Привёз сам — 0/не указано.
+  deliveryToTerminalCost Decimal? @db.Decimal(12, 2)
   notes         String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -538,6 +597,7 @@ model Deal {
   @@index([status])
   @@index([createdAt])
   @@index([positionId])
+  @@index([closedAt])
 }
 
 /// Отгрузка по сделке (создаётся действием «Отгрузить»).
@@ -597,6 +657,21 @@ model Claim {
 
   @@index([dealId])
   @@index([status])
+}
+
+/* ---------- Этап 5.1: серверные сессии владельца ---------- */
+
+/// Сессия владельца приложения. В cookie лежит случайный токен;
+/// в базе — только его SHA-256 (сам токен не хранится).
+model OwnerSession {
+  id         String   @id @default(cuid())
+  /// SHA-256(token) hex — поиск сессии по хешу.
+  tokenHash  String   @unique
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([expiresAt])
 }
 
 /* ---------- Этап 2.5: цены конкурентов (парсер) ---------- */

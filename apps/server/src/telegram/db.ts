@@ -25,6 +25,10 @@ function toLeadRow(row: {
   interest: string | null;
   status: string;
   positionId: string | null;
+  firstListingId: string | null;
+  firstChannelId: string | null;
+  lastListingId: string | null;
+  lastChannelId: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -87,6 +91,10 @@ export const prismaTelegramDb: TelegramDb = {
         externalUsername: data.externalUsername,
         name: data.name,
         positionId: data.positionId ?? null,
+        firstListingId: data.firstListingId ?? null,
+        firstChannelId: data.firstChannelId ?? null,
+        lastListingId: data.lastListingId ?? null,
+        lastChannelId: data.lastChannelId ?? null,
       },
     });
     return toLeadRow(row);
@@ -95,6 +103,25 @@ export const prismaTelegramDb: TelegramDb = {
   async updateLead(id, patch) {
     const row = await prisma.lead.update({ where: { id }, data: patch });
     return toLeadRow(row);
+  },
+
+  /* Этап 5.1: аттрибуция — листинг из deep link lst_… */
+  async listingTouch(listingId) {
+    const row = await prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { id: true, positionId: true, channelId: true },
+    });
+    return row
+      ? { listingId: row.id, positionId: row.positionId, channelId: row.channelId }
+      : null;
+  },
+
+  async recordLeadTouch(leadId, listingId, channelId) {
+    await prisma.leadTouch.upsert({
+      where: { leadId_listingId: { leadId, listingId } },
+      create: { leadId, listingId, channelId },
+      update: { channelId },
+    });
   },
 
   async createMessage(data) {

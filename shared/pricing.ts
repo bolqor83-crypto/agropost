@@ -58,24 +58,32 @@ export interface DealEconomics {
   /** Разница до налога. */
   gross: number;
   taxAmount: number;
-  /** (продажа − закуп) × объём − налог. Доставка не входит (платит покупатель). */
+  /** Доп. затраты на доставку до терминала (входят в себестоимость). */
+  deliveryToTerminalCost: number;
+  /** (продажа − закуп) × объём − налог − доставка до терминала.
+   * Доставка покупателю не входит (платит он сам). */
   margin: number;
 }
 
 /**
  * Экономика сделки — единый расчёт для сервера, веба и превью.
- * taxAmount = выручка × ставка режима; margin = gross − taxAmount.
+ * taxAmount = выручка × ставка режима; margin = gross − taxAmount −
+ * deliveryToTerminalCost (этап 5.1: доп. расходы на доставку до
+ * терминала поставщика больше не завышают прибыль).
  */
 export function computeDealEconomics(input: {
   salePrice: number;
   supplierPrice: number;
   volumeKg: number;
   taxMode: DealTaxMode;
+  /** Доп. затраты на доставку до терминала ТК, ₽ (0 по умолчанию). */
+  deliveryToTerminalCost?: number;
 }): DealEconomics {
   const revenue = round2(input.salePrice * input.volumeKg);
   const cost = round2(input.supplierPrice * input.volumeKg);
   const gross = round2(revenue - cost);
   const taxAmount = round2(revenue * (DEAL_TAX_RATE[input.taxMode] ?? 0.06));
+  const deliveryToTerminalCost = round2(input.deliveryToTerminalCost ?? 0);
   return {
     volumeKg: input.volumeKg,
     salePrice: input.salePrice,
@@ -84,7 +92,8 @@ export function computeDealEconomics(input: {
     cost,
     gross,
     taxAmount,
-    margin: round2(gross - taxAmount),
+    deliveryToTerminalCost,
+    margin: round2(gross - taxAmount - deliveryToTerminalCost),
   };
 }
 

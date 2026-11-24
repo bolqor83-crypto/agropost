@@ -102,6 +102,11 @@ export interface LeadRow {
   interest: string | null;
   status: LeadStatusValue;
   positionId: string | null;
+  /* Этап 5.1: настоящая аттрибуция источника (deep link объявления). */
+  firstListingId: string | null;
+  firstChannelId: string | null;
+  lastListingId: string | null;
+  lastChannelId: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -146,6 +151,13 @@ export interface PositionBrief {
   status: "IN_STOCK" | "ON_ORDER" | "OUT_OF_STOCK";
 }
 
+/** Касание объявления: листинг + канал (для аттрибуции лида). */
+export interface ListingTouchInfo {
+  listingId: string;
+  positionId: string;
+  channelId: string;
+}
+
 /** Узкий интерфейс БД, нужный модулю. Роуты /api/leads работают с prisma напрямую. */
 export interface TelegramDb {
   findLeadByExternal(source: LeadSourceValue, externalId: string): Promise<LeadRow | null>;
@@ -154,12 +166,32 @@ export interface TelegramDb {
   findLeadByTelegramMessageId(telegramMessageId: string): Promise<LeadRow | null>;
   messageExists(leadId: string, telegramMessageId: string): Promise<boolean>;
   createLead(
-    data: Pick<LeadRow, "source" | "externalId" | "externalUsername" | "name"> & Partial<Pick<LeadRow, "positionId">>,
+    data: Pick<LeadRow, "source" | "externalId" | "externalUsername" | "name"> &
+      Partial<
+        Pick<LeadRow, "positionId"> & {
+          firstListingId: string | null;
+          firstChannelId: string | null;
+          lastListingId: string | null;
+          lastChannelId: string | null;
+        }
+      >,
   ): Promise<LeadRow>;
   updateLead(
     id: string,
-    patch: Partial<Pick<LeadRow, "status" | "notes" | "interest" | "positionId" | "externalUsername" | "phone" | "region">>,
+    patch: Partial<
+      Pick<LeadRow, "status" | "notes" | "interest" | "positionId" | "externalUsername" | "phone" | "region"> & {
+        firstListingId: string | null;
+        firstChannelId: string | null;
+        lastListingId: string | null;
+        lastChannelId: string | null;
+      }
+    >,
   ): Promise<LeadRow>;
+  /* Этап 5.1: аттрибуция — объявление из deep link (lst_…). */
+  /** Листинг с позицией и каналом для касания (null — не найден). */
+  listingTouch(listingId: string): Promise<ListingTouchInfo | null>;
+  /** Записать касание (LeadTouch, дедуп по [leadId, listingId]). */
+  recordLeadTouch(leadId: string, listingId: string, channelId: string): Promise<void>;
   createMessage(
     data: Pick<MessageRow, "leadId" | "direction" | "text"> & Partial<Pick<MessageRow, "telegramMessageId" | "aiGenerated" | "aiCallId">>,
   ): Promise<MessageRow>;

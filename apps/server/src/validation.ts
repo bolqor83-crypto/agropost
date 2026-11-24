@@ -273,9 +273,12 @@ export const telegramPublishSchema = z.object({
   confirm: z.boolean().optional(),
 });
 
-export const telegramSetupWebhookSchema = z.object({
-  url: z.string().trim().url("Укажите ссылку (https://…)").max(300).optional(),
-});
+/**
+ * Этап 5.1: setup-webhook игнорирует тело — URL строится только из
+ * серверной конфигурации. Схема оставлена как явный «пустой контракт»:
+ * любые переданные поля (в т.ч. url) отбрасываются.
+ */
+export const telegramSetupWebhookSchema = z.object({}).passthrough();
 
 /* ---------- Этап 4: сделки, доставка, документы, рекламации ---------- */
 
@@ -332,6 +335,8 @@ export const dealCreateSchema = z.object({
   taxMode: dealTaxModeSchema.optional(),
   deliveryMethod: deliveryMethodSchema.optional(),
   deliveryCost: z.number().min(0).max(10_000_000).optional().nullable(),
+  /* Этап 5.1: доп. затраты на доставку до терминала ТК (в себестоимости). */
+  deliveryToTerminalCost: z.number().min(0).max(10_000_000).optional().nullable(),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -352,6 +357,8 @@ export const dealUpdateSchema = z
     taxMode: dealTaxModeSchema.optional(),
     deliveryMethod: deliveryMethodSchema.optional(),
     deliveryCost: z.number().min(0).max(10_000_000).optional().nullable(),
+    /* Этап 5.1: доп. затраты на доставку до терминала — пересчёт маржи. */
+    deliveryToTerminalCost: z.number().min(0).max(10_000_000).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     status: dealStatusSchema.optional(),
   })

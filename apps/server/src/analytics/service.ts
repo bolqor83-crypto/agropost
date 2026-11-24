@@ -1,12 +1,16 @@
 /**
- * Сервис аналитики (этап 5): сводка, каналы, позиции, чек-лист.
+ * Сервис аналитики (этап 5.1): сводка, каналы, позиции, чек-лист.
  * Только факты и простые агрегаты — без графиков и прогнозов.
- * Выручка/маржа/средний чек считаются по ЗАКРЫТЫМ (CLOSED) сделкам
- * за период; конверсия — лиды, ставшие сделками.
  *
- * Аттрибуция лида каналу (в схеме нет FK): берём ПОСЛЕДНЮЮ публикацию
- * позиции, о которой спросил покупатель, и относим лида в тот канал.
- * Лиды без позиции не аттрибутируются — они видны в сводке целиком.
+ * Правильная математика (этап 5.1):
+ * - выручка/маржа/средний чек — по ЗАКРЫТЫМ сделкам за период,
+ *   отбор по closedAt (дата закрытия), а не createdAt;
+ * - конверсия — УНИКАЛЬНЫЕ лиды: лид с 2 сделками = 1 сконвертированный,
+ *   конверсия не может превысить 100%;
+ * - средняя цена продажи — средневзвешенная по объёму (выручка/объём);
+ * - атрибуция лида каналу — по lastChannelId (последний достоверный
+ *   переход по deep link объявления). Лидам без достоверного источника
+ *   канал НЕ приписывается; подписчики ≠ охват (разные показатели).
  */
 
 import { positionName } from "@shared/attributes";
@@ -22,53 +26,18 @@ import type {
   ReadinessItem,
 } from "@shared/types";
 import type {
+  ChannelDealAgg,
   ChannelFactRow,
-  DealFactRow,
-  LeadFactRow,
-  ListingFactRow,
-  PositionFactRow,
+  PositionDealAgg,
+  AnalyticsDb,
 } from "./types.js";
 
 const DAY_MS = 86_400_000;
-const CLOSED = "CLOSED";
-const ACTIVE_STATUSES = ["DRAFT", "AWAITING_PAYMENT", "PAID", "SHIPPED", "DELIVERED"];
-
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
-/** Лид → канал: последняя PUBLISHED-публикация его позиции. */
-function attributeLeadsToChannels(
-  leads: LeadFactRow[],
-  listings: ListingFactRow[],
-): Map<string, string> {
-  /* Позиция → канал последней публикации. */
-  const lastByPosition = new Map<string, { channelId: string; at: number }>();
-  for (const l of listings) {
-    if (l.status !== "PUBLISHED" || !l.publishedAt) continue;
-    const at = l.publishedAt.getTime();
-    const prev = lastByPosition.get(l.positionId);
-    if (!prev || at > prev.at) lastByPosition.set(l.positionId, { channelId: l.channelId, at });
-  }
-  const byLead = new Map<string, string>();
-  for (const lead of leads) {
-    if (!lead.positionId) continue;
-    const hit = lastByPosition.get(lead.positionId);
-    if (hit) byLead.set(lead.id, hit.channelId);
-  }
-  return byLead;
-}
-
 export interface AnalyticsDeps {
-  db: AnalyticsDepsDb;
+  db: AnalyticsDb;
 }
-
-/* Локальный алиас, чтобы не тянуть типы в сигнатуры. */
-type AnalyticsDepsDb = {
-  listDealFacts(period: AnalyticsPeriod): Promise<DealFactRow[]>;
-  listChannelFacts(): Promise<ChannelFactRow[]>;
-  listPositionFacts(): Promise<PositionFactRow[]>;
-  listLeadFacts(period: AnalyticsPeriod): Promise<LeadFactRow[]>;
-  listListingFacts(): Promise<ListingFactRow[]>;
-};
 
 /* ---------- 1. Сводка ---------- */
 
@@ -77,98 +46,52 @@ export async function buildSummary(
   deps: AnalyticsDeps,
   now = Date.now(),
 ): Promise<AnalyticsSummaryDTO> {
-  const [deals, leads, listings, channels] = await Promise.all([
-    deps.db.listDealFacts(period),
-    deps.db.listLeadFacts(period),
-    deps.db.listListingFacts(),
-    deps.db.listChannelFacts(),
+  const [deals, leads, cultures, topChannelLeads, channels, channelDealStats] = await Promise.all([
+    deps.db.dealsTotals(period, now),
+    deps.db.leadsTotals(period, now),
+    deps.db.topCultures(period, 3, now),
+    deps.db.topChannels(period, 3, now),
+    deps.db.channelFacts(),
+    deps.db.channelDealStats(),
   ]);
 
-  const closed = deals.filter((d) => d.status === CLOSED);
-  const revenue = round2(closed.reduce((sum, d) => sum + d.salePrice * d.volumeKg, 0));
-  const margin = round2(closed.reduce((sum, d) => sum + d.margin, 0));
-  const averageCheck = closed.length ? round2(revenue / closed.length) : null;
+  const averageCheck = deals.closed > 0 ? round2(deals.revenue / deals.closed) : null;
 
-  const dealsTotal = deals.length;
-  const dealsClosed = closed.length;
-  const dealsActive = deals.filter((d) => ACTIVE_STATUSES.includes(d.status)).length;
+  /* Конверсия по УНИКАЛЬНЫМ лидам: один лид с N сделками = 1 сконвертированный. */
+  const converted = await deps.db.convertedLeadsCount(period, now);
+  const conversion = leads.total > 0 ? Math.round((converted / leads.total) * 100) : null;
 
-  /* Топ-3 культуры по марже (закрытые сделки). */
-  const byCulture = new Map<string, { margin: number; deals: number }>();
-  for (const d of closed) {
-    const name = d.cultureName ?? "Без позиции";
-    const cell = byCulture.get(name) ?? { margin: 0, deals: 0 };
-    cell.margin += d.margin;
-    cell.deals += 1;
-    byCulture.set(name, cell);
-  }
-  const topCultures: AnalyticsTopCulture[] = [...byCulture.entries()]
-    .sort((a, b) => b[1].margin - a[1].margin)
-    .slice(0, 3)
-    .map(([name, cell]) => ({
-      name,
-      margin: round2(cell.margin),
-      dealsCount: cell.deals,
-    }));
-
-  /* Конверсия: лиды за период → сделки с leadId за период. */
-  const leadIds = new Set(leads.map((l) => l.id));
-  const convertedDeals = deals.filter((d) => d.leadId && leadIds.has(d.leadId));
-  const leadsConverted = convertedDeals.length;
-  const conversion = leads.length ? Math.round((leadsConverted / leads.length) * 100) : null;
-
-  /* Топ-3 канала по лидам (аттрибуция по позиции). */
-  const attribution = attributeLeadsToChannels(leads, listings);
-  const dealLeadChannel = new Map<string, string | null>();
-  for (const d of convertedDeals) {
-    if (!d.leadId) continue;
-    dealLeadChannel.set(d.leadId, attribution.get(d.leadId) ?? null);
-  }
+  /* Топ-3 канала по лидам: last-touch атрибуция (lastChannelId). */
   const channelName = new Map(channels.map((c) => [c.id, c.name]));
-  const byChannel = new Map<string, { leads: number; deals: number }>();
-  for (const lead of leads) {
-    const channelId = attribution.get(lead.id);
-    if (!channelId) continue;
-    const cell = byChannel.get(channelId) ?? { leads: 0, deals: 0 };
-    cell.leads += 1;
-    byChannel.set(channelId, cell);
-  }
-  for (const [, channelId] of dealLeadChannel) {
-    if (!channelId) continue;
-    const cell = byChannel.get(channelId);
-    if (cell) cell.deals += 1;
-  }
-  const topChannels: AnalyticsTopChannel[] = [...byChannel.entries()]
-    .sort((a, b) => b[1].leads - a[1].leads || b[1].deals - a[1].deals)
-    .slice(0, 3)
-    .map(([channelId, cell]) => ({
-      name: channelName.get(channelId) ?? "Канал",
-      leads: cell.leads,
-      deals: cell.deals,
-    }));
+  const dealsByChannel = new Map(channelDealStats.map((d) => [d.channelId, d.deals]));
+  const topChannels: AnalyticsTopChannel[] = topChannelLeads.map((tc) => ({
+    name: channelName.get(tc.channelId) ?? "Канал удалён",
+    leads: tc.leads,
+    deals: dealsByChannel.get(tc.channelId) ?? 0,
+  }));
 
-  /* Новые лиды за сегодня (вне периода — свежая цифра всегда). */
-  const allLeads = period === "all" ? leads : await deps.db.listLeadFacts("all");
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const newLeadsToday = allLeads.filter((l) => l.createdAt.getTime() >= todayStart.getTime()).length;
+  const topCultures: AnalyticsTopCulture[] = cultures.map((c) => ({
+    name: c.name,
+    margin: c.margin,
+    dealsCount: c.deals,
+  }));
 
   return {
     ok: true,
     period,
-    revenue,
-    margin,
-    dealsTotal,
-    dealsClosed,
-    dealsActive,
+    revenue: deals.revenue,
+    margin: deals.margin,
+    dealsTotal: deals.total,
+    dealsClosed: deals.closed,
+    dealsActive: deals.active,
     averageCheck,
     topCultures,
     topChannels,
-    leadsTotal: leads.length,
-    leadsConverted,
+    leadsTotal: leads.total,
+    leadsConverted: converted,
     conversion,
-    newLeadsToday,
-    lowData: dealsClosed < 3,
+    newLeadsToday: leads.today,
+    lowData: deals.closed < 3,
   };
 }
 
@@ -181,30 +104,21 @@ export async function buildChannels(
   deps: AnalyticsDeps,
   now = Date.now(),
 ): Promise<AnalyticsChannelRow[]> {
-  const [channels, leads, listings, deals] = await Promise.all([
-    deps.db.listChannelFacts(),
-    deps.db.listLeadFacts("all"),
-    deps.db.listListingFacts(),
-    deps.db.listDealFacts("all"),
+  const [channels, dealStats, leadsAllTime] = await Promise.all([
+    deps.db.channelFacts(),
+    deps.db.channelDealStats(),
+    deps.db.topChannels("all", Number.MAX_SAFE_INTEGER, now),
   ]);
 
-  const attribution = attributeLeadsToChannels(leads, listings);
-  const leadIdsByChannel = new Map<string, Set<string>>();
-  for (const lead of leads) {
-    const channelId = attribution.get(lead.id);
-    if (!channelId) continue;
-    const set = leadIdsByChannel.get(channelId) ?? new Set<string>();
-    set.add(lead.id);
-    leadIdsByChannel.set(channelId, set);
-  }
+  const leadsByChannel = new Map(leadsAllTime.map((tc) => [tc.channelId, tc.leads]));
+  const dealStatsByChannel = new Map(dealStats.map((d) => [d.channelId, d]));
 
-  const rows: AnalyticsChannelRow[] = channels.map((c) => {
-    const channelLeadIds = leadIdsByChannel.get(c.id) ?? new Set<string>();
-    const channelDeals = deals.filter((d) => d.leadId && channelLeadIds.has(d.leadId));
-    const closedChannelDeals = channelDeals.filter((d) => d.status === CLOSED);
-    const avgMargin = closedChannelDeals.length
-      ? round2(closedChannelDeals.reduce((sum, d) => sum + d.margin, 0) / closedChannelDeals.length)
-      : null;
+  const rows: AnalyticsChannelRow[] = channels.map((c: ChannelFactRow) => {
+    const stats: ChannelDealAgg | undefined = dealStatsByChannel.get(c.id);
+    const leads = leadsByChannel.get(c.id) ?? 0;
+    const deals = stats?.deals ?? 0;
+    const avgMargin =
+      stats && stats.closedDeals > 0 ? round2(stats.closedMargin / stats.closedDeals) : null;
     const days = daysSince(c.lastPublishedAt);
     return {
       id: c.id,
@@ -212,21 +126,21 @@ export async function buildChannels(
       type: c.type as AnalyticsChannelRow["type"],
       region: c.region,
       city: c.city,
-      reach: c.averageReach ?? c.subscribersCount,
+      /* Подписчики и фактический охват — РАЗНЫЕ показатели; null — неизвестно. */
+      subscribersCount: c.subscribersCount,
+      averageReach: c.averageReach,
       listings: c.listingsCount,
       publications: c.publications,
-      leads: channelLeadIds.size,
-      deals: channelDeals.length,
-      conversion: channelLeadIds.size
-        ? Math.round((channelDeals.length / channelLeadIds.size) * 100)
-        : null,
+      leads,
+      deals,
+      /* Конверсия по уникальным сконвертированным лидам канала. */
+      conversion: leads > 0 ? Math.round(((stats?.convertedLeads ?? 0) / leads) * 100) : null,
       avgMargin,
       lastPublishedAt: c.lastPublishedAt ? c.lastPublishedAt.toISOString() : null,
       daysSincePublication: days,
     };
   });
 
-  void now;
   return rows.sort((a, b) =>
     sort === "leads"
       ? b.leads - a.leads || (b.avgMargin ?? 0) - (a.avgMargin ?? 0)
@@ -243,45 +157,36 @@ export async function buildPositions(
   deps: AnalyticsDeps,
   now = Date.now(),
 ): Promise<AnalyticsPositionRow[]> {
-  const [positions, deals, listings] = await Promise.all([
-    deps.db.listPositionFacts(),
-    deps.db.listDealFacts("all"),
-    deps.db.listListingFacts(),
+  const [positions, dealStats, lastPublished] = await Promise.all([
+    deps.db.positionFacts(),
+    deps.db.positionDealStats(),
+    deps.db.lastPublishedByPosition(),
   ]);
 
-  /* Позиция → последняя публикация. */
-  const lastByPosition = new Map<string, Date>();
-  for (const l of listings) {
-    if (l.status !== "PUBLISHED" || !l.publishedAt) continue;
-    const prev = lastByPosition.get(l.positionId);
-    if (!prev || l.publishedAt > prev) lastByPosition.set(l.positionId, l.publishedAt);
-  }
-
   const rows: AnalyticsPositionRow[] = positions.map((p) => {
-    const positionDeals = deals.filter((d) => d.positionId === p.id);
-    const closedDeals = positionDeals.filter((d) => d.status === CLOSED);
-    const revenue = round2(closedDeals.reduce((sum, d) => sum + d.salePrice * d.volumeKg, 0));
-    const margin = round2(closedDeals.reduce((sum, d) => sum + d.margin, 0));
-    const avgSalePrice = positionDeals.length
-      ? round2(positionDeals.reduce((sum, d) => sum + d.salePrice, 0) / positionDeals.length)
-      : null;
-    const lastPublishedAt = lastByPosition.get(p.id) ?? null;
+    const stats: PositionDealAgg | undefined = dealStats.get(p.id);
+    /* Средневзвешенная цена: выручка / проданный объём. */
+    const avgSalePrice =
+      stats && stats.volumeKg > 0 ? round2(stats.revenue / stats.volumeKg) : null;
+    /* Дни в наличии — от stockSince; для старых позиций null = неизвестно. */
+    const daysInStock =
+      p.stockSince !== null ? Math.max(0, Math.floor((now - p.stockSince.getTime()) / DAY_MS)) : null;
+    const lastPublishedAt = lastPublished.get(p.id) ?? null;
     return {
       id: p.id,
       title: positionName(p.cultureName, p.attributes),
       cultureName: p.cultureName,
       volumeKg: p.volumeKg,
       status: p.status as AnalyticsPositionRow["status"],
-      dealsCount: positionDeals.length,
-      revenue,
-      margin,
+      dealsCount: stats?.dealsCount ?? 0,
+      revenue: stats?.revenue ?? 0,
+      margin: stats?.margin ?? 0,
       avgSalePrice,
-      daysInStock: Math.max(0, Math.floor((now - p.createdAt.getTime()) / DAY_MS)),
+      daysInStock,
       lastPublishedAt: lastPublishedAt ? lastPublishedAt.toISOString() : null,
     };
   });
 
-  void now;
   return rows.sort((a, b) =>
     sort === "stock" ? b.volumeKg - a.volumeKg : b.margin - a.margin || b.revenue - a.revenue,
   );
@@ -307,6 +212,8 @@ export interface ReadinessFacts {
   aiConfigured: boolean;
   /** R2 настроен (медиа): endpoint + ключи. */
   r2Configured: boolean;
+  /** Этап 5.1: парсер цен настроен (PARSER_URL + PARSER_SECRET). */
+  parserConfigured: boolean;
 }
 
 export function buildReadiness(facts: ReadinessFacts): ReadinessDTO {
@@ -353,6 +260,13 @@ export function buildReadiness(facts: ReadinessFacts): ReadinessDTO {
       label: "R2 настроен (медиа)",
       done: facts.r2Configured,
       hint: "Render env: R2_ENDPOINT, ключи и bucket — для фото позиций",
+      optional: true,
+    },
+    {
+      id: "parser",
+      label: "Парсер цен настроен",
+      done: facts.parserConfigured,
+      hint: "Render env: PARSER_URL + PARSER_SECRET (сервис services/parser) — без него «Рынок» пустой",
       optional: true,
     },
   ];

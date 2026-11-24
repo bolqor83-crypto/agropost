@@ -6,6 +6,15 @@
 - Telegram — только публичные каналы, отдельный аккаунт;
 - Агросервер — robots.txt и не более 1 запроса в 2 секунды;
 - ключи (TG_API_ID/TG_API_HASH, session) — только в .env.
+
+Этап 5.1 (безопасность и законность):
+- TG_COLLECT_ENABLED=0 ПО УМОЛЧАНИЮ: массовый MTProto-сбор публичных
+  каналов выключен — включается только владельцем вручную для
+  ИСТОЧНИКОВ, НА КОТОРЫЕ У НЕГО ЕСТЬ ПРАВО (официальные API/свои каналы);
+- PARSER_SECRET: внутренний секрет Node API → Python /run — без него
+  запуск сбора запрещён (fail-closed, сервер-сервер);
+- robots.txt недоступен → обход НЕ начинается (fail-closed, раньше
+  ошибка чтения трактовалась как «разрешено»).
 """
 
 from __future__ import annotations
@@ -42,6 +51,13 @@ def _env_list(name: str, default: list[str]) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
+
+
 class Settings:
     """Все параметры парсера. Меняйте через .env, не в коде."""
 
@@ -73,6 +89,17 @@ class Settings:
     tg_messages_limit: int = _env_int("TG_MESSAGES_LIMIT", 200)
     tg_request_interval: float = _env_float("TG_REQUEST_INTERVAL", 1.5)
     tg_max_channels: int = _env_int("TG_MAX_CHANNELS", 500)
+
+    # Этап 5.1: массовый MTProto-сбор публичных каналов ВЫКЛЮЧЕН по
+    # умолчанию. Включайте только для источников, на обработку которых
+    # у владельца есть подтверждённое право (свои каналы/официальные API).
+    # Telegram ToS ограничивает сбор и агрегирование контента публичных
+    # каналов без разрешения — по умолчанию не собираем.
+    tg_collect_enabled: bool = _env_bool("TG_COLLECT_ENABLED", False)
+
+    # Этап 5.1: внутренний секрет сервер-сервер (Node API → /run).
+    # Без него /run отвечает отказом — публичный запуск невозможен.
+    parser_secret: str = os.getenv("PARSER_SECRET", "").strip()
 
     # Cron внутри сервиса: раз в 12 часов (0 = выключить).
     scheduler_interval_hours: int = _env_int("SCHEDULER_INTERVAL_HOURS", 12)

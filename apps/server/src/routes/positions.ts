@@ -102,6 +102,11 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
         minLotKg: data.minLotKg,
         hasCertificate: data.hasCertificate ?? false,
         status: data.status ?? "IN_STOCK",
+        /* Этап 5.1: фактическое начало наличия — для честных дней
+           в аналитике (старым позициям не выдумываем дату: null). */
+        ...(data.status === undefined || data.status === "IN_STOCK"
+          ? { stockSince: new Date() }
+          : {}),
       },
       include: includePosition,
     });
@@ -144,11 +149,17 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
 
     const supplierPrice = data.supplierPrice ?? Number(current.supplierPrice);
     const markupPercent = data.markupPercent ?? Number(current.markupPercent);
+    /* Этап 5.1: переход в IN_STOCK фиксирует начало ТЕКУЩЕГО периода
+       наличия (дни в наличии = непрерывный период). OUT_OF_STOCK →
+       возврат позже обновит дату — это новый период наличия. */
+    const returningInStock =
+      data.status === "IN_STOCK" && current.status !== "IN_STOCK";
     const row = await prisma.supplierPosition.update({
       where: { id },
       data: {
         ...data,
         ...(attributes ? { attributes } : {}),
+        ...(returningInStock ? { stockSince: new Date() } : {}),
         salePrice: computeSalePrice(supplierPrice, markupPercent),
       },
       include: includePosition,

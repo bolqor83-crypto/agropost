@@ -56,9 +56,10 @@ function toDealDTO(row: DealRow): DealDTO {
     number: row.number,
     leadId: row.leadId,
     positionId: row.positionId,
+    /* Этап 5.1: позиция могла быть удалена — из снимка (устойчивая история). */
     positionName: row.position
       ? positionName(row.position.cultureName, row.position.attributes)
-      : null,
+      : row.itemName,
     buyerName: row.buyerName,
     buyerPhone: row.buyerPhone,
     buyerRegion: row.buyerRegion,
@@ -72,11 +73,16 @@ function toDealDTO(row: DealRow): DealDTO {
     revenue: round2(row.salePrice * row.volumeKg),
     deliveryMethod: row.deliveryMethod,
     deliveryCost: row.deliveryCost,
+    deliveryToTerminalCost: row.deliveryToTerminalCost,
     deliveryPaidBy: "BUYER",
     status: row.status,
     paidAt: iso(row.paidAt),
     shippedAt: iso(row.shippedAt),
     deliveredAt: iso(row.deliveredAt),
+    closedAt: iso(row.closedAt),
+    supplierName: row.supplierName,
+    supplierLocation: row.supplierLocation,
+    shippingMode: row.shippingMode,
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

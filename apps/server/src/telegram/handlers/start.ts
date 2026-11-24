@@ -1,7 +1,16 @@
 /**
  * /start — приветствие + инструкция (часть B ТЗ).
- * Deep link из объявления: t.me/{bot}?start=pos_{positionId} —
- * бот сразу называет позицию и привязывает вопрос к ней.
+ * Deep link из объявления (этап 5.1): t.me/{bot}?start=lst_{listingId} —
+ * бот называет позицию, привязывает вопрос к ней и ЗАПИСЫВАЕТ
+ * достоверный источник: канал конкретного объявления.
+ *
+ * Атрибуция: first/last touch на Lead + история касаний (LeadTouch).
+ * Первый достоверный источник становится First Touch и не перезаписывается;
+ * каждый новый переход обновляет Last Touch и дописывает историю.
+ *
+ * Совместимость: старые ссылки pos_{positionId} продолжают работать
+ * (позиция подставляется в приветствие), но источник НЕ приписывается —
+ * по одной позиции в разных каналах канал неизвестен (не выдумываем).
  */
 
 import type { TgMessage, TelegramDeps } from "../types.js";
@@ -14,6 +23,24 @@ const STATUS_LABEL: Record<"IN_STOCK" | "ON_ORDER" | "OUT_OF_STOCK", string> = {
 
 function rub(value: number): string {
   return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(value)} ₽/кг`;
+}
+
+/** Записать касание + обновить first/last touch лида. */
+async function recordTouch(
+  leadId: string,
+  touch: { listingId: string; channelId: string; positionId: string },
+  deps: TelegramDeps,
+  isFreshLead: boolean,
+): Promise<void> {
+  await deps.db.recordLeadTouch(leadId, touch.listingId, touch.channelId);
+  const patch = {
+    positionId: touch.positionId,
+    /* First Touch фиксируется только для нового лида. */
+    ...(isFreshLead ? { firstListingId: touch.listingId, firstChannelId: touch.channelId } : {}),
+    lastListingId: touch.listingId,
+    lastChannelId: touch.channelId,
+  };
+  await deps.db.updateLead(leadId, patch);
 }
 
 export async function handleStartCommand(msg: TgMessage, deps: TelegramDeps): Promise<void> {
@@ -38,8 +65,11 @@ export async function handleStartCommand(msg: TgMessage, deps: TelegramDeps): Pr
   const payload = (msg.text ?? "").replace(/^\/start\s*/i, "").trim();
   const externalId = String(from.id);
 
+  const existing =
+    (await deps.db.findLeadByExternal("TELEGRAM_BOT", externalId)) ?? null;
+  const isFreshLead = existing === null;
   const lead =
-    (await deps.db.findLeadByExternal("TELEGRAM_BOT", externalId)) ??
+    existing ??
     (await deps.db.createLead({
       source: "TELEGRAM_BOT",
       externalId,
@@ -47,9 +77,21 @@ export async function handleStartCommand(msg: TgMessage, deps: TelegramDeps): Pr
       name: [from.first_name, from.last_name].filter(Boolean).join(" ") || null,
     }));
 
-  /* pos_{positionId} из deep link объявления. */
   let brief = null as Awaited<ReturnType<typeof deps.db.positionBrief>>;
-  if (payload.startsWith("pos_")) {
+
+  /* lst_{listingId} — новая аттрибуция: объявление → канал. */
+  if (payload.startsWith("lst_")) {
+    const listingId = payload.slice("lst_".length).trim();
+    if (listingId) {
+      const touch = await deps.db.listingTouch(listingId);
+      if (touch) {
+        await recordTouch(lead.id, touch, deps, isFreshLead);
+        brief = await deps.db.positionBrief(touch.positionId);
+      }
+    }
+  } else if (payload.startsWith("pos_")) {
+    /* Старый формат: позиция известна, канал — НЕТ (позиция может
+       публиковаться в разных каналах). Источник не выдумываем. */
     const positionId = payload.slice("pos_".length).trim();
     if (positionId) {
       brief = await deps.db.positionBrief(positionId);

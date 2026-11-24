@@ -86,7 +86,9 @@ export function fallbackReply(p: PositionDTO, incoming: string): AiReplyData {
     includes.push("доставка", "оплата");
   }
   if (REPLY_KEYWORDS.payment.test(text) && !REPLY_KEYWORDS.delivery.test(text)) {
-    parts.push("Работаем без предоплаты: отправка после полной оплаты.");
+    /* Этап 5.1: однозначная формулировка — без двусмысленного
+       «без предоплаты» (читалось наоборот). */
+    parts.push("Отправка заказа производится после поступления полной оплаты.");
     includes.push("оплата");
   }
 
@@ -254,13 +256,21 @@ export function fallbackAdvice(ctx: AiAdviceContext): AiAdviceData {
 
 /* ---------- 4. Price analysis ---------- */
 
+/* Этап 5.1: минимум цены — из НАЦЕНКИ самой позиции (markupPercent),
+   а не произвольных 10%. Наценка и валовая маржа — разные вещи:
+   наценка — (цена − закуп)/закуп × 100%, маржа — доля выручки. */
+function priceFloor(p: PositionDTO): number {
+  const markupPercent = p.markupPercent ?? 0;
+  return Math.round(p.supplierPrice * (1 + markupPercent / 100) * 100) / 100;
+}
+
 export function fallbackPriceAnalysis(
   p: PositionDTO,
   market: AiMarketSnapshot,
 ): AiPriceAnalysisData {
   const ourPrice = p.salePrice;
   const marketAvg = market.avg;
-  const floor = p.supplierPrice * 1.1;
+  const floor = priceFloor(p);
 
   if (marketAvg === null) {
     return {
@@ -268,7 +278,7 @@ export function fallbackPriceAnalysis(
       ourPrice,
       marketAvg: null,
       delta: null,
-      recommendation: `Данных о рынке пока мало. Держите цену ${ourPrice} ₽/кг — ниже ${Math.ceil(floor)} ₽/кг опускаться не стоит (закуп + 10%).`,
+      recommendation: `Данных о рынке пока мало — сравнить не с чем. Текущая цена ${ourPrice} ₽/кг при наценке позиции ${Math.round(p.markupPercent ?? 0)}%: закуп ${p.supplierPrice} ₽/кг. Ниже ${Math.ceil(floor)} ₽/кг опускаться не стоит (закуп + наценка позиции).`,
     };
   }
 
@@ -279,7 +289,7 @@ export function fallbackPriceAnalysis(
 
   let recommendation: string;
   if (marketPosition === "below") {
-    recommendation = `Цена ниже рынка в среднем на ${Math.abs(delta).toLocaleString("ru-RU")} ₽/кг. Можно поднять до ${Math.ceil(marketAvg)} ₽/кг, но ниже ${Math.ceil(floor)} ₽/кг не опускайтесь.`;
+    recommendation = `Цена ниже рынка в среднем на ${Math.abs(delta).toLocaleString("ru-RU")} ₽/кг. Можно поднять до ${Math.ceil(marketAvg)} ₽/кг, но ниже ${Math.ceil(floor)} ₽/кг не опускайтесь (закуп + наценка позиции).`;
   } else if (marketPosition === "above") {
     recommendation = `Цена выше рынка в среднем на ${delta.toLocaleString("ru-RU")} ₽/кг. Проверьте, чем обоснована разница: качество, сертификат, объём или срочность.`;
   } else {
@@ -287,7 +297,7 @@ export function fallbackPriceAnalysis(
   }
 
   if (floor > marketAvg) {
-    recommendation += ` Внимание: рынок ниже закупа с наценкой 10% (${Math.ceil(floor)} ₽/кг) — снижать цену не рекомендуется.`;
+    recommendation += ` Внимание: рынок ниже закупа с наценкой позиции (${Math.ceil(floor)} ₽/кг при наценке ${Math.round(p.markupPercent ?? 0)}%) — снижать цену не рекомендуется.`;
   }
 
   return { marketPosition, ourPrice, marketAvg, delta, recommendation };

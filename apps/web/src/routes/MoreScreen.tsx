@@ -2,7 +2,8 @@
  * Ещё — карта разделов по этапам дорожной карты.
  * Этап 1 открыл «Поставщиков» и «Позиции и остатки»;
  * этап 2 — «Каналы» и «Аккаунты»; этап 5 — «Аналитику»
- * и чек-лист «Перед запуском» (прогресс N из 7).
+ * и чек-лист «Перед запуском». Этап 5.1 — кнопка «Выйти»:
+ * уничтожение серверной сессии и очистка состояния устройства.
  */
 
 import { useEffect, useState } from "react";
@@ -25,9 +26,11 @@ import {
   Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import type { ReadinessDTO } from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
+import { resetAllStores } from "../lib/logout";
 import { Card, Chip, ScreenHeader, Skeleton } from "../components/ui";
 
 const SECTIONS: {
@@ -184,6 +187,30 @@ export function MoreScreen() {
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-ink">Настройки</p>
             <p className="text-[12px] font-medium text-soft">Реквизиты, налог, тёмная тема</p>
+          </div>
+          <ChevronRight size={16} className="shrink-0 text-soft" />
+        </button>
+
+        {/* Этап 5.1: выход — уничтожение серверной сессии + чистка сторов. */}
+        <button
+          type="button"
+          onClick={() => {
+            void api
+              .logout()
+              .catch(() => undefined)
+              .finally(() => {
+                resetAllStores();
+                navigate("/login", { replace: true });
+              });
+          }}
+          className="press mt-3 flex w-full items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-3.5 text-left"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-subtle text-soft">
+            <LogOut size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold text-ink">Выйти</p>
+            <p className="text-[12px] font-medium text-soft">Завершить сессию на этом устройстве</p>
           </div>
           <ChevronRight size={16} className="shrink-0 text-soft" />
         </button>

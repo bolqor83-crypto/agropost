@@ -116,8 +116,10 @@ export async function publishListingViaBot(
     warning = `Малая аудитория: ${subs} подписчиков — возможно, лучше вручную.`;
   }
 
-  /* Текст объявления + вопрос продавцу через бота (white-label). */
-  const deepLink = `https://t.me/${me.username}?start=pos_${listing.positionId}`;
+  /* Текст объявления + вопрос продавцу через бота (white-label).
+     Deep link lst_{listingId} (этап 5.1): входящий лид аттрибутируется
+     каналу ЭТОГО объявления — по нему потом считается источник лида. */
+  const deepLink = `https://t.me/${me.username}?start=lst_${listing.id}`;
   const fullText = `${escapeHtml(listing.text)}\n\n📩 Задать вопрос продавцу: ${deepLink}`;
   const firstBreak = fullText.indexOf("\n");
   const html =

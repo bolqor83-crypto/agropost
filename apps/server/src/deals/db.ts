@@ -55,7 +55,7 @@ type PrismaPosition = {
   bagWeightKg: number;
   supplierPrice: unknown;
   salePrice: unknown;
-  supplier?: { location: string } | null;
+  supplier?: { location: string; name: string; shippingMode: string } | null;
   culture?: { name: string; type: string } | null;
 };
 
@@ -71,6 +71,8 @@ function toPositionRow(row: PrismaPosition): PositionRow {
     supplierPrice: num(row.supplierPrice),
     salePrice: num(row.salePrice),
     supplierLocation: (row.supplier?.location ?? "OTHER") as PositionRow["supplierLocation"],
+    supplierName: row.supplier?.name ?? "",
+    supplierShippingMode: (row.supplier?.shippingMode ?? "BOTH") as PositionRow["supplierShippingMode"],
   };
 }
 
@@ -102,6 +104,17 @@ function toDealRow(row: Record<string, unknown>): DealRow {
     paidAt: (row.paidAt as Date | null) ?? null,
     shippedAt: (row.shippedAt as Date | null) ?? null,
     deliveredAt: (row.deliveredAt as Date | null) ?? null,
+    closedAt: (row.closedAt as Date | null) ?? null,
+    itemName: (row.itemName as string | null) ?? null,
+    itemCulture: (row.itemCulture as string | null) ?? null,
+    itemAttributes: (row.itemAttributes ?? null) as Record<string, string | number> | null,
+    supplierName: (row.supplierName as string | null) ?? null,
+    supplierLocation: (row.supplierLocation as string | null) ?? null,
+    shippingMode: (row.shippingMode as string | null) ?? null,
+    deliveryToTerminalCost:
+      row.deliveryToTerminalCost === null || row.deliveryToTerminalCost === undefined
+        ? null
+        : num(row.deliveryToTerminalCost),
     notes: (row.notes as string | null) ?? null,
     createdAt: row.createdAt as Date,
     updatedAt: row.updatedAt as Date,
@@ -204,6 +217,16 @@ export const prismaDealsDb: DealsDb = {
         margin: data.margin,
         deliveryMethod: data.deliveryMethod,
         deliveryCost: data.deliveryCost,
+        /* Этап 5.1: снимок условий + закрытие + доп. расходы. */
+        itemName: data.itemName ?? null,
+        itemCulture: data.itemCulture ?? null,
+        ...(data.itemAttributes
+          ? { itemAttributes: data.itemAttributes as object }
+          : {}),
+        supplierName: data.supplierName ?? null,
+        supplierLocation: data.supplierLocation ?? null,
+        shippingMode: data.shippingMode ?? null,
+        deliveryToTerminalCost: data.deliveryToTerminalCost ?? null,
         status: data.status,
         notes: data.notes,
       },
@@ -233,6 +256,10 @@ export const prismaDealsDb: DealsDb = {
           ...(data.paidAt !== undefined ? { paidAt: data.paidAt } : {}),
           ...(data.shippedAt !== undefined ? { shippedAt: data.shippedAt } : {}),
           ...(data.deliveredAt !== undefined ? { deliveredAt: data.deliveredAt } : {}),
+          ...(data.closedAt !== undefined ? { closedAt: data.closedAt } : {}),
+          ...(data.deliveryToTerminalCost !== undefined
+            ? { deliveryToTerminalCost: data.deliveryToTerminalCost }
+            : {}),
           ...(data.notes !== undefined ? { notes: data.notes } : {}),
         },
         include: positionInclude,

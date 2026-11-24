@@ -56,7 +56,7 @@ describe("fallback", () => {
     expect(data.actions.some((a) => a.link === "/publish")).toBe(true);
   });
 
-  test("price: ниже рынка, но не ниже закупа + 10%", () => {
+  test("price: ниже рынка, но не ниже закупа + наценка позиции (15%)", () => {
     const data = fallbackPriceAnalysis(pos1, {
       min: 220,
       max: 260,
@@ -68,8 +68,10 @@ describe("fallback", () => {
     expect(data.marketPosition).toBe("below");
     expect(data.ourPrice).toBe(212.75);
     expect(data.delta).toBe(-27.25);
-    expect(data.recommendation).toContain("204");
-    expect(data.recommendation).not.toMatch(/сниз.*1\d\d/i);
+    /* 185 × 1.15 = 212.75 → «ниже 213 не опускайтесь». */
+    expect(data.recommendation).toContain("213");
+    expect(data.recommendation).not.toMatch(/сниз.*2\d\d/i);
+    expect(data.recommendation).toContain("наценка позиции");
   });
 
   test("price: нет рынка → честная рекомендация", () => {
@@ -84,7 +86,9 @@ describe("fallback", () => {
     expect(data.marketPosition).toBe("at");
     expect(data.marketAvg).toBeNull();
     expect(data.delta).toBeNull();
-    expect(data.recommendation).toContain("204");
+    /* Нет рынка — честно: только закуп и наценка позиции, минимум 213. */
+    expect(data.recommendation).toContain("213");
+    expect(data.recommendation).toContain("наценк");
   });
 
   test("logistics: 2–4 варианта, отсортированы по цене", () => {

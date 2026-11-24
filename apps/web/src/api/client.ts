@@ -1,6 +1,12 @@
 /**
  * Типизированный клиент API АгроПост.
  *
+ * Этап 5.1 (авторизация владельца):
+ * - все запросы идут с credentials: 'include' — HttpOnly-cookie сессии
+ *   уходит автоматически, пароль/токен в JS НЕ живут;
+ * - ответ 401 централизованно переводит на /login (без циклов:
+ *   сами auth-запросы и страница входа исключены).
+ *
  * База:
  * - Vite (apps/web): VITE_API_URL при сборке, иначе относительный /api —
  *   его проксирует vite-dev-server на localhost:3001 (см. vite.config.ts);
@@ -102,11 +108,21 @@ function resolveApiBase(): string {
 
 const BASE = resolveApiBase();
 
+/** Авторизация: 401 → один.redirect на /login (без циклов). */
+function handleUnauthorized(path: string): void {
+  if (path.startsWith("/auth/")) return; /* auth сам обрабатывает */
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+  const target = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.assign(`/login?redirect=${target}`);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
+      credentials: "include", /* HttpOnly-cookie сессии (этап 5.1) */
       headers: { "Content-Type": "application/json", ...init?.headers },
     });
   } catch {
@@ -116,6 +132,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = text ? (JSON.parse(text) as unknown) : null;
   if (!res.ok) {
     const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
+    if (res.status === 401) {
+      /* Истёкшая/чужая сессия — на экран входа (однократно). */
+      handleUnauthorized(path);
+    }
     throw new ApiError(res.status, err?.code ?? "UNKNOWN", err?.message ?? `Ошибка ${res.status}`);
   }
   return body as T;
@@ -209,6 +229,36 @@ export function deleteMedia(positionId: string, mediaId: string): Promise<{ ok: 
 
 export function getUser(): Promise<UserDTO | null> {
   return request<UserDTO | null>("/user");
+}
+
+/* ---------- Этап 5.1: авторизация владельца ---------- */
+
+export interface LoginInput {
+  login: string;
+  password: string;
+}
+
+export interface AuthSessionDTO {
+  ok: true;
+  authenticated: boolean;
+  configured: boolean;
+  login?: string;
+  expiresAt?: string;
+}
+
+/** Вход владельца: серверная сессия в HttpOnly-cookie. */
+export function login(input: LoginInput): Promise<{ ok: true; authenticated: true; expiresAt: string }> {
+  return request("/auth/login", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Выход: уничтожение серверной сессии + очистка cookie. */
+export function logout(): Promise<{ ok: true; authenticated: false }> {
+  return request("/auth/logout", { method: "POST" });
+}
+
+/** Состояние сессии (публичный маршрут — для экрана входа). */
+export function getAuthSession(): Promise<AuthSessionDTO> {
+  return request<AuthSessionDTO>("/auth/session");
 }
 
 export function getMeta(): Promise<{
@@ -504,13 +554,16 @@ export function generateDealDocument(
   });
 }
 
-/** Скачивание PDF как файла (бинарный ответ). */
+/** Скачивание PDF как файла (бинарный ответ, с cookie сессии). */
 export async function downloadDocument(doc: DocumentDTO): Promise<void> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}/documents/${doc.id}/file`);
+    res = await fetch(`${BASE}/documents/${doc.id}/file`, { credentials: "include" });
   } catch {
     throw new ApiError(0, "NETWORK", "Сервер недоступен — проверьте API");
+  }
+  if (res.status === 401) {
+    handleUnauthorized(`/documents/${doc.id}/file`);
   }
   if (!res.ok) {
     throw new ApiError(res.status, "DOWNLOAD_FAILED", "Не удалось скачать документ");

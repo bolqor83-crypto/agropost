@@ -162,7 +162,7 @@ async def test_collect_network_error_is_graceful(monkeypatch) -> None:
     try:
         rows, stats = await adapter.collect(["люцерна"])
         assert rows == []
-        assert stats.status in {"error", "empty", "blocked"}
+        assert stats.status in {"error", "empty", "blocked", "robots_unavailable"}
         assert stats.note
     finally:
         await adapter.close()

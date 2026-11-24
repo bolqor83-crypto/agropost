@@ -267,3 +267,76 @@ describe("документы сделки", () => {
     await expect(generateDealDocument(deal.id, "INVOICE", d)).rejects.toThrow(DocumentsError);
   });
 });
+
+/* ---------- Этап 5.1: снимок условий, closedAt, доп. расходы ---------- */
+
+describe("снимок условий сделки (этап 5.1)", () => {
+  test("создание фиксирует товар, поставщика и условия позиции", async () => {
+    const d = deps();
+    const deal = await createDeal({ leadId: "lead-1", volumeKg: 1000 }, d);
+    expect(deal.itemName).toBe("Люцерна «Вега 87»");
+    expect(deal.itemCulture).toBe("Люцерна");
+    expect(deal.itemAttributes).toEqual({ sort: "Вега 87", germination: 92 });
+    expect(deal.supplierName).toBe("Агро-Юг");
+    expect(deal.supplierLocation).toBe("Павловская");
+    expect(deal.shippingMode).toBe("SELF_LOADS");
+    expect(deal.closedAt).toBeNull();
+  });
+
+  test("история survives: удаление позиции не теряет название товара", async () => {
+    const d = deps();
+    const deal = await createDeal({ leadId: "lead-1", volumeKg: 1000 }, d);
+    d.db.positions.length = 0; /* позиция удалена */
+    /* Prisma перечитывает relation: позиции больше нет — row.position null. */
+    const stored = d.db.deals.find((x) => x.id === deal.id)!;
+    stored.position = null;
+    const row = await d.db.findDeal(deal.id);
+    expect(row?.itemName).toBe("Люцерна «Вега 87»");
+    expect(row?.position).toBeNull();
+    /* Позиции нет — а название товара в сделке живёт в снимке. */
+  });
+
+  test("доп. затраты на доставку до терминала вычитаются из маржи", async () => {
+    const d = deps();
+    const deal = await createDeal(
+      { leadId: "lead-1", volumeKg: 1000, deliveryToTerminalCost: 3000 },
+      d,
+    );
+    /* (100 − 80) × 1000 − 6000 налога − 3000 терминала = 11000. */
+    expect(deal.taxAmount).toBe(6000);
+    expect(deal.margin).toBe(11000);
+    expect(deal.deliveryToTerminalCost).toBe(3000);
+  });
+
+  test("close фиксирует closedAt; повторный PATCH CLOSED дату не перезаписывает", async () => {
+    const d = deps();
+    const deal = await createDeal({ leadId: "lead-1", volumeKg: 100 }, d);
+    await dealAction(deal.id, "pay", d);
+    await dealAction(deal.id, "ship", d, { method: "PICKUP", fromCity: "ст. Павловская", toCity: "Краснодар", cost: 0 });
+    await dealAction(deal.id, "deliver", d);
+    await dealAction(deal.id, "close", d);
+    const closed = await d.db.findDeal(deal.id);
+    expect(closed?.status).toBe("CLOSED");
+    expect(closed?.closedAt).toBeInstanceOf(Date);
+    const first = closed!.closedAt!.getTime();
+
+    /* Повторный PATCH со статусом CLOSED: same-status — не переход,
+       closedAt не перезаписывается (документированное поведение). */
+    await updateDeal(deal.id, { status: "CLOSED" }, d);
+    const after = await d.db.findDeal(deal.id);
+    expect(after!.closedAt!.getTime()).toBe(first);
+
+    /* Переход CLOSED → DRAFT запрещён графом — «повторного открытия» нет. */
+    await expect(updateDeal(deal.id, { status: "DRAFT" }, d)).rejects.toThrow(ApiError);
+  });
+});
+
+describe("калькулятор: честная подпись оценки (этап 5.1)", () => {
+  test("мета помечена как оценка, не тариф перевозчика", async () => {
+    const d = deps();
+    const res = await calculateDelivery({ toCity: "Краснодар", volumeKg: 1000 }, d);
+    expect(res.meta.estimate).toBe(true);
+    expect(res.meta.disclaimer).toBe("Ориентировочно, не является тарифом перевозчика");
+    expect(res.options.length).toBeGreaterThan(0);
+  });
+});

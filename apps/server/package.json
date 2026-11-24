@@ -13,14 +13,16 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:generate": "prisma generate",
-    "test": "bun test src/ai src/telegram src/deals src/documents src/analytics",
+    "test": "bun test src/ai src/telegram src/deals src/documents src/analytics src/auth",
     "test:golden": "bun test src/ai/__tests__/golden.integration.test.ts",
-    "test:deals": "bun test src/deals src/documents"
+    "test:deals": "bun test src/deals src/documents",
+    "hash-password": "tsx scripts/hash-password.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.712.0",
     "@aws-sdk/s3-request-presigner": "^3.712.0",
     "@fastify/cors": "^10.0.1",
+    "@node-rs/argon2": "^2.2.2",
     "@prisma/client": "^6.2.1",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",

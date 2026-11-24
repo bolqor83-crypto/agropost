@@ -6,13 +6,13 @@
  */
 
 import { positionName } from "@shared/attributes";
-import { SUPPLIER_LOCATION_LABEL } from "@shared/labels";
 import {
   canDeleteDeal,
   canTransitionDeal,
   isDealTerminal,
 } from "@shared/deals";
 import { computeDealEconomics, deriveDealTaxMode } from "@shared/pricing";
+import { SUPPLIER_LOCATION_LABEL } from "@shared/labels";
 import type {
   ClaimCreateInput,
   ClaimStatus,
@@ -105,9 +105,46 @@ function recompute(deal: {
   salePrice: number;
   supplierPrice: number;
   taxMode: DealTaxMode;
+  deliveryToTerminalCost?: number | null;
 }): { taxAmount: number; margin: number; revenue: number } {
-  const econ = computeDealEconomics(deal);
+  const econ = computeDealEconomics({
+    ...deal,
+    deliveryToTerminalCost: deal.deliveryToTerminalCost ?? undefined,
+  });
   return { taxAmount: econ.taxAmount, margin: econ.margin, revenue: econ.revenue };
+}
+
+/* Этап 5.1: снимок условий сделки на момент создания — история не
+   теряется при изменении/удалении позиции поставщика. Поля поставщика —
+   white-label: только внутри приложения, в клиентские документы не идут. */
+interface DealSnapshot {
+  itemName: string | null;
+  itemCulture: string | null;
+  itemAttributes: Record<string, string | number> | null;
+  supplierName: string | null;
+  supplierLocation: string | null;
+  shippingMode: string | null;
+}
+
+function buildSnapshot(position: import("./types.js").PositionRow | null): DealSnapshot {
+  if (!position) {
+    return {
+      itemName: null,
+      itemCulture: null,
+      itemAttributes: null,
+      supplierName: null,
+      supplierLocation: null,
+      shippingMode: null,
+    };
+  }
+  return {
+    itemName: positionName(position.cultureName, position.attributes),
+    itemCulture: position.cultureName,
+    itemAttributes: position.attributes,
+    supplierName: position.supplierName || null,
+    supplierLocation: SUPPLIER_LOCATION_LABEL[position.supplierLocation] ?? null,
+    shippingMode: position.supplierShippingMode ?? null,
+  };
 }
 
 export async function createDeal(input: DealCreateInput, deps: DealsDeps): Promise<DealRow> {
@@ -144,7 +181,17 @@ export async function createDeal(input: DealCreateInput, deps: DealsDeps): Promi
     throw badRequest("Укажите имя, телефон и регион покупателя");
   }
 
-  const econ = computeDealEconomics({ salePrice, supplierPrice, volumeKg: input.volumeKg, taxMode });
+  /* Этап 5.1: доп. затраты на доставку до терминала — в себестоимости. */
+  const deliveryToTerminalCost = input.deliveryToTerminalCost ?? null;
+  const econ = computeDealEconomics({
+    salePrice,
+    supplierPrice,
+    volumeKg: input.volumeKg,
+    taxMode,
+    deliveryToTerminalCost: deliveryToTerminalCost ?? undefined,
+  });
+
+  const snapshot = buildSnapshot(position);
 
   /* Номер: count+1 с повтором при коллизии (unique). */
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -168,10 +215,14 @@ export async function createDeal(input: DealCreateInput, deps: DealsDeps): Promi
         margin: econ.margin,
         deliveryMethod: input.deliveryMethod ?? "PICKUP",
         deliveryCost: input.deliveryCost ?? null,
+        /* Этап 5.1: снимок условий сделки (устойчив к удалению позиции). */
+        ...snapshot,
+        deliveryToTerminalCost,
         status: "DRAFT",
         paidAt: null,
         shippedAt: null,
         deliveredAt: null,
+        closedAt: null,
         notes: input.notes ?? null,
       });
     } catch (err) {
@@ -199,7 +250,15 @@ export async function updateDeal(id: string, input: DealUpdateInput, deps: Deals
   const salePrice = input.salePrice ?? deal.salePrice;
   const supplierPrice = input.supplierPrice ?? deal.supplierPrice;
   const taxMode = input.taxMode ?? deal.taxMode;
-  const econ = recompute({ volumeKg, salePrice, supplierPrice, taxMode });
+  const deliveryToTerminalCost =
+    input.deliveryToTerminalCost !== undefined
+      ? input.deliveryToTerminalCost
+      : deal.deliveryToTerminalCost;
+  const econ = recompute({ volumeKg, salePrice, supplierPrice, taxMode, deliveryToTerminalCost });
+
+  /* Этап 5.1: закрытие фиксирует дату (один раз; CLOSED — терминальный
+     статус, повторного открытия в графе нет — см. shared/deals.ts). */
+  const closingNow = input.status === "CLOSED" && deal.status !== "CLOSED";
 
   const updated = await db.updateDeal(id, {
     ...(input.buyerName !== undefined ? { buyerName: input.buyerName } : {}),
@@ -212,8 +271,12 @@ export async function updateDeal(id: string, input: DealUpdateInput, deps: Deals
     ...(input.taxMode !== undefined ? { taxMode: input.taxMode } : {}),
     ...(input.deliveryMethod !== undefined ? { deliveryMethod: input.deliveryMethod } : {}),
     ...(input.deliveryCost !== undefined ? { deliveryCost: input.deliveryCost } : {}),
+    ...(input.deliveryToTerminalCost !== undefined
+      ? { deliveryToTerminalCost: input.deliveryToTerminalCost }
+      : {}),
     ...(input.notes !== undefined ? { notes: input.notes } : {}),
     ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(closingNow ? { closedAt: new Date() } : {}),
     taxAmount: econ.taxAmount,
     margin: econ.margin,
   });
@@ -281,7 +344,8 @@ export async function dealAction(
     }
     case "close": {
       assertTransition(deal.status, "CLOSED");
-      return mustDeal(await db.updateDeal(id, { status: "CLOSED" }));
+      /* Этап 5.1: дата закрытия — для аналитики выручки по периодам. */
+      return mustDeal(await db.updateDeal(id, { status: "CLOSED", closedAt: new Date() }));
     }
     case "cancel": {
       if (isDealTerminal(deal.status)) {
@@ -315,6 +379,12 @@ export async function deleteDeal(id: string, deps: DealsDeps): Promise<void> {
 
 /* ---------- Калькулятор доставки ---------- */
 
+/* Этап 5.1: фиксированные base/perKg НЕ тарифы перевозчика — оценки
+   по базовой формуле (локальные ТК дешевле/быстрее). Помечаем ответ
+   как предварительную оценку, чтобы не выдавалась за подтверждённую
+   стоимость. Настоящие тарифы ТК — при подтверждённых заявках. */
+const DELIVERY_DISCLAIMER = "Ориентировочно, не является тарифом перевозчика";
+
 /** Детерминированная оценка: локальная ТК дешевле и быстрее. */
 function estimateCarrier(carrier: CarrierRow, volumeKg: number, index: number): { cost: number; days: number } {
   const base = carrier.isLocal ? 400 : 1500;
@@ -342,7 +412,13 @@ export async function calculateDelivery(
       volumeKg: input.volumeKg,
       options: [],
       recommendedIndex: 0,
-      meta: { ai: false, model: null, note: "Справочник транспортных компаний пуст" },
+      meta: {
+        ai: false,
+        model: null,
+        note: "Справочник транспортных компаний пуст",
+        estimate: true,
+        disclaimer: DELIVERY_DISCLAIMER,
+      },
     };
   }
 
@@ -353,7 +429,7 @@ export async function calculateDelivery(
 
   let ai = false;
   let model: string | null = null;
-  let note = "Оценки по базовой формуле (локальные ТК — приоритет)";
+  let note = "Оценка по базовой формуле (не тариф ТК): локальные — приоритет";
   let notesByCarrier = new Map<string, string>();
 
   if (deps.planLogistics) {
@@ -402,7 +478,13 @@ export async function calculateDelivery(
     volumeKg: input.volumeKg,
     options,
     recommendedIndex: 0,
-    meta: { ai, model, note },
+    meta: {
+      ai,
+      model,
+      note,
+      estimate: true,
+      disclaimer: DELIVERY_DISCLAIMER,
+    },
   };
 }
 
@@ -443,6 +525,8 @@ export async function generateDealDocument(
     supplierPrice: deal.supplierPrice,
     volumeKg: deal.volumeKg,
     taxMode: deal.taxMode,
+    /* Этап 5.1: доп. расходы на терминал — в экономике документа. */
+    deliveryToTerminalCost: deal.deliveryToTerminalCost ?? undefined,
   });
 
   const data: DocumentData = {
@@ -458,9 +542,12 @@ export async function generateDealDocument(
       inn: deal.buyerInn,
     },
     goods: {
-      name: deal.position
-        ? positionName(deal.position.cultureName, deal.position.attributes)
-        : "Сельскохозяйственная продукция",
+      /* Этап 5.1: снимок названия на момент сделки — работает даже
+         после удаления/изменения позиции поставщика. */
+      name:
+        deal.itemName ??
+        (deal.position ? positionName(deal.position.cultureName, deal.position.attributes) : null) ??
+        "Сельскохозяйственная продукция",
       volumeKg: deal.volumeKg,
       bagWeightKg: deal.position?.bagWeightKg ?? null,
       salePrice: deal.salePrice,

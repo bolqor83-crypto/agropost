@@ -19,5 +19,5 @@
     }
   },
   "include": ["src", "prisma", "prisma.config.ts", "../../shared", "src/documents/packages.d.ts"],
-  "exclude": ["src/ai/__tests__", "src/telegram/__tests__", "src/deals/__tests__", "src/documents/__tests__", "src/analytics/__tests__"]
+  "exclude": ["src/ai/__tests__", "src/telegram/__tests__", "src/deals/__tests__", "src/documents/__tests__", "src/analytics/__tests__", "src/auth/__tests__"]
 }

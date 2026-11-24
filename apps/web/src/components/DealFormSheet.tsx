@@ -44,6 +44,8 @@ export function DealFormSheet({
   const [taxMode, setTaxMode] = useState<DealTaxMode>("IP_6");
   const [notes, setNotes] = useState("");
 
+  /* Этап 5.1: доп. затраты на доставку до терминала (в себестоимости). */
+  const [terminalCost, setTerminalCost] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PICKUP");
   const [toCity, setToCity] = useState(prefill?.buyerRegion ?? "");
   const [deliveryCost, setDeliveryCost] = useState("");
@@ -85,8 +87,15 @@ export function DealFormSheet({
     if (!Number.isFinite(sale) || !Number.isFinite(supp) || !Number.isFinite(vol) || vol <= 0) {
       return null;
     }
-    return computeDealEconomics({ salePrice: sale, supplierPrice: supp, volumeKg: vol, taxMode });
-  }, [salePrice, supplierPrice, volumeKg, taxMode]);
+    const extra = Number(terminalCost.replace(",", "."));
+    return computeDealEconomics({
+      salePrice: sale,
+      supplierPrice: supp,
+      volumeKg: vol,
+      taxMode,
+      deliveryToTerminalCost: Number.isFinite(extra) && extra > 0 ? extra : undefined,
+    });
+  }, [salePrice, supplierPrice, volumeKg, taxMode, terminalCost]);
 
   const calculate = () => {
     const vol = Number(volumeKg.replace(",", "."));
@@ -136,6 +145,9 @@ export function DealFormSheet({
         deliveryMethod,
         ...(deliveryMethod !== "PICKUP" && deliveryCost.trim()
           ? { deliveryCost: Number(deliveryCost.replace(",", ".")) }
+          : {}),
+        ...(terminalCost.trim()
+          ? { deliveryToTerminalCost: Number(terminalCost.replace(",", ".")) }
           : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       })
@@ -245,6 +257,24 @@ export function DealFormSheet({
             </div>
           </div>
 
+          {/* Этап 5.1: доп. затраты на доставку до терминала ТК — входят
+              в себестоимость (вычитаются из маржи). Пусто = поставщик
+              привозит сам / расходов нет. */}
+          <div className="mt-3">
+            <Field
+              label="Доставка до терминала, ₽"
+              hint="если платите поставщику"
+            >
+              <TextInput
+                value={terminalCost}
+                onChange={(e) => setTerminalCost(e.target.value)}
+                inputMode="decimal"
+                placeholder="0"
+                aria-label="Дополнительные затраты на доставку до терминала"
+              />
+            </Field>
+          </div>
+
           <div className="mt-3">
             <Field label="Налоговый режим" hint="по умолчанию из профиля">
               <Select
@@ -266,6 +296,14 @@ export function DealFormSheet({
                 <span className="text-[13px] font-medium text-soft">Налог</span>
                 <span className="text-[14px] font-semibold text-soft">− {fmtRub(econ.taxAmount)}</span>
               </div>
+              {econ.deliveryToTerminalCost > 0 && (
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-[13px] font-medium text-soft">Терминал (доставка)</span>
+                  <span className="text-[14px] font-semibold text-soft">
+                    − {fmtRub(econ.deliveryToTerminalCost)}
+                  </span>
+                </div>
+              )}
               <div className="mt-2 flex items-baseline justify-between border-t border-line pt-2">
                 <span className="text-[13px] font-medium text-soft">Маржа после налога</span>
                 <span className={`text-[17px] font-semibold ${econ.margin > 0 ? "text-accent" : "text-warm"}`}>
@@ -353,6 +391,11 @@ export function DealFormSheet({
                     {options.meta.ai
                       ? `Оценки уточнены AI · ${options.meta.model ?? "GLM"}`
                       : options.meta.note}
+                  </p>
+                  {/* Этап 5.1: оценки ПРЕДВАРИТЕЛЬНЫЕ — не тариф ТК. */}
+                  <p className="px-1 text-[11px] font-semibold text-warm">
+                    ⚠ Ориентировочно, не является тарифом перевозчика — итоговую стоимость
+                    подтверждает ТК при заявке.
                   </p>
                 </div>
               )}

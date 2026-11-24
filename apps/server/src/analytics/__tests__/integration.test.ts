@@ -12,25 +12,25 @@ import { createDeal, dealAction } from "../../deals/service.js";
 import { buildSummary } from "../service.js";
 import { adviceContextToPrompt } from "../../ai/context.js";
 import { fallbackAdvice } from "../../ai/fallback.js";
-import { MemoryAnalyticsDb, daysAgo, leadFact } from "./fixtures.js";
-import type { DealFactRow } from "../types.js";
+import { MemoryAnalyticsDb, daysAgo, leadFact, type DealSeed } from "./fixtures.js";
 
 const T = Date.now();
 
-/** DealRow → DealFactRow (плоское отображение, как в prismaAnalyticsDb). */
-function toFact(row: Awaited<ReturnType<typeof createDeal>>): DealFactRow {
+/** DealRow → строка аналитики (как в prismaAnalyticsDb, с closedAt). */
+function toFact(row: Awaited<ReturnType<typeof createDeal>>): DealSeed {
   return {
     id: row.id,
     number: row.number,
     leadId: row.leadId,
     positionId: row.positionId,
     cultureName: row.position?.cultureName ?? null,
-    attributes: row.position?.attributes ?? null,
     volumeKg: row.volumeKg,
     salePrice: row.salePrice,
     margin: row.margin,
     status: row.status,
     createdAt: row.createdAt,
+    /* Этап 5.1: дата закрытия из строки БД. */
+    closedAt: row.closedAt,
   };
 }
 
@@ -72,6 +72,11 @@ describe("сделка → аналитика обновилась", () => {
     expect(after.topCultures[0].margin).toBe(14000);
     expect(after.averageCheck).toBe(100000);
     expect(after.lowData).toBe(true); /* 1 < 3 */
+
+    /* Этап 5.1: закрытая сделка видна в периоде «неделя» по closedAt. */
+    const week = await buildSummary("week", { db: analyticsDb }, T);
+    expect(week.dealsClosed).toBe(1);
+    expect(week.revenue).toBe(100000);
   });
 });
 

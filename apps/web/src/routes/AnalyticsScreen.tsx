@@ -2,7 +2,10 @@
  * Аналитика (этап 5): простые факты по запросу — без графиков.
  * Три вкладки: Сводка (период неделя/месяц/всё время), Каналы, Позиции.
  * Если закрытых сделок < 3 — мягкое «данных пока мало».
- * CSV собирается в браузере из уже загруженных строк.
+ *
+ * Этап 5.1: CSV собирается в браузере через lib/csv (защита от
+ * formula injection), подписчики и охват — отдельные показатели,
+ * дни наличия — от stockSince (null → «неизвестно»).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +19,7 @@ import type {
 } from "@shared/types";
 import * as api from "../api/client";
 import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
+import { downloadCsv, toCsv } from "../lib/csv";
 import { Btn, Card, Chip, EmptyState, ScreenHeader, Segmented, Skeleton } from "../components/ui";
 
 const PERIOD_ITEMS: { value: AnalyticsPeriod; label: string }[] = [
@@ -30,29 +34,7 @@ const PERIOD_CAPTION: Record<AnalyticsPeriod, string> = {
   all: "за всё время",
 };
 
-/* ---------- CSV ---------- */
-
-function csvEscape(value: string | number | null): string {
-  const raw = value === null ? "" : String(value);
-  return /[",\n;]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
-}
-
-function toCsv(header: string[], rows: (string | number | null)[][]): string {
-  const lines = [header, ...rows].map((cells) => cells.map(csvEscape).join(";"));
-  return `\uFEFF${lines.join("\n")}`; /* BOM — Excel открывает кириллицу */
-}
-
-function downloadCsv(name: string, csv: string): void {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
+/* ---------- CSV: с защитой от formula injection (lib/csv) ---------- */
 
 /* ---------- Вкладка «Сводка» ---------- */
 
@@ -187,9 +169,12 @@ function ChannelsView({
             <p className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">{c.name}</p>
             <Chip tone="neutral">{CHANNEL_TYPE_LABEL[c.type] ?? c.type}</Chip>
           </div>
+          {/* Подписчики и фактический охват — разные показатели (этап 5.1). */}
           <p className="mt-0.5 truncate text-[12px] font-medium text-soft">
             {c.region}
-            {c.city ? ` · ${c.city}` : ""} · охват {c.reach !== null ? fmtNum(c.reach) : "—"}
+            {c.city ? ` · ${c.city}` : ""} · подписчики{" "}
+            {c.subscribersCount !== null ? fmtNum(c.subscribersCount) : "—"} · ср. охват{" "}
+            {c.averageReach !== null ? fmtNum(c.averageReach) : "неизвестен"}
           </p>
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-medium text-soft">
             <span>
@@ -270,8 +255,10 @@ function PositionsView({
               </b>
             </span>
             <span>
-              {p.daysInStock} дн. в наличии ·{" "}
-              {p.lastPublishedAt ? "публиковалась" : "без публикаций"}
+              {p.daysInStock !== null
+                ? `${p.daysInStock} дн. в наличии`
+                : "дней в наличии — неизвестно"}{" "}
+              · {p.lastPublishedAt ? "публиковалась" : "без публикаций"}
             </span>
           </div>
         </div>
@@ -328,13 +315,14 @@ export function AnalyticsScreen() {
   const exportChannelsCsv = useCallback(() => {
     if (!channels) return;
     const csv = toCsv(
-      ["Канал", "Тип", "Регион", "Город", "Охват", "Размещений", "Выходов", "Лидов", "Сделок", "Конверсия %", "Ср. маржа ₽", "Последняя публикация", "Дней назад"],
+      ["Канал", "Тип", "Регион", "Город", "Подписчики", "Ср. факт. охват", "Размещений", "Выходов", "Лидов", "Сделок", "Конверсия %", "Ср. маржа ₽", "Последняя публикация", "Дней назад"],
       channels.map((c) => [
         c.name,
         CHANNEL_TYPE_LABEL[c.type] ?? c.type,
         c.region,
         c.city ?? "",
-        c.reach ?? "",
+        c.subscribersCount ?? "—",
+        c.averageReach ?? "неизвестен",
         c.listings,
         c.publications,
         c.leads,
@@ -351,7 +339,7 @@ export function AnalyticsScreen() {
   const exportPositionsCsv = useCallback(() => {
     if (!positions) return;
     const csv = toCsv(
-      ["Позиция", "Культура", "Остаток кг", "Статус", "Сделок", "Выручка ₽", "Маржа ₽", "Ср. цена ₽/кг", "Дней в наличии", "Последняя публикация"],
+      ["Позиция", "Культура", "Остаток кг", "Статус", "Сделок", "Выручка ₽", "Маржа ₽", "Ср. цена ₽/кг (взвеш.)", "Дней в наличии", "Последняя публикация"],
       positions.map((p) => [
         p.title,
         p.cultureName,
@@ -361,7 +349,7 @@ export function AnalyticsScreen() {
         p.revenue,
         p.margin,
         p.avgSalePrice ?? "",
-        p.daysInStock,
+        p.daysInStock ?? "неизвестно",
         p.lastPublishedAt ?? "без публикаций",
       ]),
     );

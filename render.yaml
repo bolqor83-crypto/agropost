@@ -30,6 +30,22 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+      # Этап 5.1: вход владельца (Argon2id-хеш; пароль не в открытом виде).
+      # Хеш: cd apps/server && bun run hash-password
+      - key: OWNER_LOGIN
+        value: agropost
+      - key: OWNER_PASSWORD_HASH
+        sync: false
+      # Этап 5.1: доверенные origin для CORS (через запятую).
+      - key: TRUSTED_ORIGINS
+        value: https://agropost-web.onrender.com
+      # Этап 5.1: парсер цен — адрес сервиса и внутренний секрет
+      # сервер-сервер (Node → Python /run). Без них /api/parser/*
+      # честно отвечает «Парсер не настроен».
+      - key: PARSER_URL
+        sync: false
+      - key: PARSER_SECRET
+        sync: false
       - key: OPENROUTER_KEY
         sync: false
       # AI-слой (этап 3.0): GLM через Z.AI — основной провайдер,
@@ -61,10 +77,11 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
 
-  # Этап 2.5 — сервис парсера цен (Python). Пока работает ЛОКАЛЬНО
-  # (uvicorn app.main:app, см. services/parser/README.md). Раскомментируйте,
-  # когда решите поднять его на Render (free tier, спит — cron раз в 12 ч
-  # внутри сервиса всё равно дергает сбор при каждом пробуждении):
+  # Этап 5.1 — сервис парсера цен (Python). ВЫКЛЮЧЕН по умолчанию:
+  # раскомментируйте блок целиком и задайте PARSER_URL для agropost-api
+  # (https://agropost-parser.onrender.com) + одинаковый PARSER_SECRET
+  # в обоих сервисах. MTProto-сбор публичных каналов ТГ выключен
+  # (TG_COLLECT_ENABLED=0) — см. services/parser/README.md.
   #
   # - type: web
   #   name: agropost-parser
@@ -77,11 +94,17 @@ services:
   #   envVars:
   #     - key: DATABASE_URL
   #       sync: false
+  #     - key: PARSER_SECRET
+  #       sync: false
+  #     - key: TG_COLLECT_ENABLED
+  #       value: "0"
   #     - key: TG_API_ID
   #       sync: false
   #     - key: TG_API_HASH
   #       sync: false
   #     - key: TG_SESSION
   #       sync: false
+  #     - key: TG_CHANNELS
+  #       value: selhoz032,RUSSIAN_WHOLESALER
   #     - key: AGROSERVER_QUERIES
   #       value: люцерна,эспарцет,суданка,грецкий орех

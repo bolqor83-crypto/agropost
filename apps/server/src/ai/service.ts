@@ -257,12 +257,16 @@ export async function analyzePrice(
 ): Promise<{ data: AiPriceAnalysisData; warnings: string[]; meta: AiMeta }> {
   const position = deps.position ?? (await loadPosition(input.positionId));
   const market = input.market ?? (await loadMarketSnapshot(position));
-  const floorPrice = Math.round(position.supplierPrice * 1.1 * 100) / 100;
+  /* Этап 5.1: минимум цены — из наценки самой позиции (markupPercent),
+     а не произвольных 10%. Наценка ≠ валовая маржа. */
+  const markupPercent = position.markupPercent ?? 0;
+  const floorPrice = Math.round(position.supplierPrice * (1 + markupPercent / 100) * 100) / 100;
   const system = loadPrompt("system");
   const template = loadPrompt("price_analysis");
   const user = renderPrompt(template, {
     ourPrice: position.salePrice,
     supplierPrice: position.supplierPrice,
+    markupPercent,
     floorPrice,
     marketMin: market.min ?? "—",
     marketMax: market.max ?? "—",
@@ -322,7 +326,7 @@ export async function analyzePrice(
     recommendation = fallbackPriceAnalysis(position, market).recommendation;
   }
   if (floorPrice > (marketAvg ?? 0)) {
-    recommendation += ` Ниже ${Math.ceil(floorPrice)} ₽/кг не опускайтесь — это закуп с наценкой 10%.`;
+    recommendation += ` Ниже ${Math.ceil(floorPrice)} ₽/кг не опускайтесь — это закуп с наценкой позиции ${Math.round(markupPercent)}%.`;
   }
 
   return {

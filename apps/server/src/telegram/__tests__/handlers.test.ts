@@ -181,6 +181,120 @@ describe("/start", () => {
     expect(api.sent[0].text).toContain("в наличии");
   });
 
+  /* ---------- Этап 5.1: настоящая атрибуция lst_{listingId} ---------- */
+
+  test("deep link lst_: касание записано, first/last touch заполнены, приветствие по позиции", async () => {
+    const db = new MemoryDb();
+    db.positions.push({
+      id: "pos-1",
+      name: "Люцерна Вега 87",
+      salePrice: 212.75,
+      volumeKg: 20_000,
+      status: "IN_STOCK",
+    });
+    db.listingTouches.push({ listingId: "li-1", positionId: "pos-1", channelId: "ch-kuban" });
+    const api = new FakeApi();
+    const deps = makeDeps(db, api);
+
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6001, text: "/start lst_li-1", messageId: 10 })),
+      deps,
+    );
+
+    const lead = db.leads[0];
+    expect(lead.positionId).toBe("pos-1");
+    expect(lead.firstListingId).toBe("li-1");
+    expect(lead.firstChannelId).toBe("ch-kuban");
+    expect(lead.lastListingId).toBe("li-1");
+    expect(lead.lastChannelId).toBe("ch-kuban");
+    expect(db.touches.length).toBe(1);
+    expect(db.touches[0]).toMatchObject({ leadId: lead.id, listingId: "li-1", channelId: "ch-kuban" });
+    expect(api.sent[0].text).toContain("Люцерна Вега 87");
+  });
+
+  test("повторный lst_ из другого канала: first touch не меняется, last — обновляется, история растёт", async () => {
+    const db = new MemoryDb();
+    db.positions.push({
+      id: "pos-1",
+      name: "Люцерна Вега 87",
+      salePrice: 212.75,
+      volumeKg: 20_000,
+      status: "IN_STOCK",
+    });
+    db.listingTouches.push(
+      { listingId: "li-1", positionId: "pos-1", channelId: "ch-kuban" },
+      { listingId: "li-2", positionId: "pos-1", channelId: "ch-don" },
+    );
+    const api = new FakeApi();
+    const deps = makeDeps(db, api);
+
+    /* Одна и та же позиция опубликована в ДВУХ каналах. */
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6002, text: "/start lst_li-1", messageId: 11 })),
+      deps,
+    );
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6002, text: "/start lst_li-2", messageId: 12 })),
+      deps,
+    );
+
+    expect(db.leads.length).toBe(1); /* один покупатель */
+    const lead = db.leads[0];
+    expect(lead.firstChannelId).toBe("ch-kuban"); /* первый источник неизменен */
+    expect(lead.lastChannelId).toBe("ch-don"); /* последний источник обновлён */
+    expect(db.touches.length).toBe(2); /* история касаний: оба объявления */
+    /* Дедуп: повторное касание того же объявления не плодит записи. */
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6002, text: "/start lst_li-1", messageId: 13 })),
+      deps,
+    );
+    expect(db.touches.length).toBe(2);
+    expect(lead.lastChannelId).toBe("ch-kuban"); /* last touch вернулся к первому */
+    expect(lead.firstChannelId).toBe("ch-kuban");
+  });
+
+  test("старая ссылка pos_: позиция подставляется, канал НЕ приписывается", async () => {
+    const db = new MemoryDb();
+    db.positions.push({
+      id: "pos-1",
+      name: "Пшеница 3 класс",
+      salePrice: 15.5,
+      volumeKg: 120_000,
+      status: "IN_STOCK",
+    });
+    const api = new FakeApi();
+    const deps = makeDeps(db, api);
+
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6003, text: "/start pos_pos-1", messageId: 14 })),
+      deps,
+    );
+
+    const lead = db.leads[0];
+    expect(lead.positionId).toBe("pos-1");
+    /* Источник неизвестен: позиция могла публиковаться в разных каналах. */
+    expect(lead.firstChannelId).toBeNull();
+    expect(lead.lastChannelId).toBeNull();
+    expect(db.touches.length).toBe(0);
+  });
+
+  test("неизвестный lst_: приветствие без выдуманного источника", async () => {
+    const db = new MemoryDb();
+    const api = new FakeApi();
+    const deps = makeDeps(db, api);
+
+    await handleTelegramUpdate(
+      update(buyerMessage({ fromId: 6004, text: "/start lst_li-unknown", messageId: 15 })),
+      deps,
+    );
+
+    expect(db.leads.length).toBe(1);
+    expect(db.leads[0].firstChannelId).toBeNull();
+    expect(db.leads[0].lastChannelId).toBeNull();
+    expect(db.touches.length).toBe(0);
+    expect(api.sent[0].text).toContain("Здравствуйте!");
+  });
+
   test("обычный /start: приветствие без позиции, лид создаётся", async () => {
     const db = new MemoryDb();
     const api = new FakeApi();

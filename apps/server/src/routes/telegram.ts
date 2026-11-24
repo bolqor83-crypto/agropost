@@ -1,12 +1,18 @@
 /**
  * /api/telegram/* — статус бота, ручная установка webhook,
  * публикация в свои каналы (часть C/D ТЗ, этап 3.2).
+ *
+ * Этап 5.1: все три маршрута закрыты авторизацией владельца
+ * (глобальный guard, см. auth/guard.ts). setup-webhook больше НЕ
+ * принимает URL от клиента: адрес строится ТОЛЬКО из серверной
+ * конфигурации (TELEGRAM_WEBHOOK_URL / RENDER_EXTERNAL_URL) —
+ * перенаправить апдейты бота на произвольный URL нельзя.
  */
 
 import type { FastifyInstance } from "fastify";
 import { ApiError, badRequest } from "../errors.js";
 import { parseOrThrow } from "../validation.js";
-import { telegramPublishSchema, telegramSetupWebhookSchema } from "../validation.js";
+import { telegramPublishSchema } from "../validation.js";
 import { getTelegram } from "../telegram/index.js";
 import { publishListingViaBot } from "../telegram/publish.js";
 import type { TelegramPublishDTO, TelegramStatusDTO } from "@shared/types";
@@ -57,18 +63,21 @@ export async function telegramRoutes(app: FastifyInstance): Promise<void> {
     return result;
   });
 
-  /* Ручная установка webhook (если Render перезапустился и авто-сетап не сработал). */
-  app.post("/api/telegram/setup-webhook", async (req) => {
+  /* Ручная установка webhook (если Render перезапустился и авто-сетап не сработал).
+     URL — только из серверной конфигурации; тело запроса игнорируется. */
+  app.post("/api/telegram/setup-webhook", async () => {
     const telegram = getTelegram();
     if (!telegram.api) {
       throw new ApiError(503, "TELEGRAM_NOT_CONFIGURED", "Бот не настроен: задайте TELEGRAM_BOT_TOKEN");
     }
-    const input = parseOrThrow(telegramSetupWebhookSchema, req.body ?? {});
-    const url = input.url ?? telegram.cfg.webhookUrl;
+    const url = telegram.cfg.webhookUrl;
     if (!url) {
       throw badRequest(
-        "URL не задан: передайте url в теле или установите TELEGRAM_WEBHOOK_URL (на Render выводится автоматически)",
+        "URL вебхука не задан в серверной конфигурации: установите TELEGRAM_WEBHOOK_URL или задеплойте на Render (RENDER_EXTERNAL_URL подставляется автоматически)",
       );
+    }
+    if (!telegram.cfg.webhookSecret) {
+      throw badRequest("Секрет вебхука не задан — установка без секрета запрещена");
     }
     await telegram.api.setWebhook(url, telegram.cfg.webhookSecret);
     const info = await telegram.api.getWebhookInfo();

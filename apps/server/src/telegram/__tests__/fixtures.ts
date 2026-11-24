@@ -43,6 +43,9 @@ export class MemoryDb implements TelegramDb {
   cultureNames: string[] = [];
   positions: PositionBrief[] = [];
   bumpedAccounts: string[] = [];
+  /* Этап 5.1: касания объявлений (LeadTouch) + связка листинг → канал. */
+  touches: { leadId: string; listingId: string; channelId: string; createdAt: Date }[] = [];
+  listingTouches: { listingId: string; positionId: string; channelId: string }[] = [];
 
   constructor(seeds?: { leads?: LeadSeed[]; messages?: MessageSeed[] }) {
     for (const seed of seeds?.leads ?? []) this.seedLead(seed);
@@ -61,6 +64,10 @@ export class MemoryDb implements TelegramDb {
       interest: seed.interest ?? null,
       status: seed.status ?? "NEW",
       positionId: seed.positionId ?? null,
+      firstListingId: null,
+      firstChannelId: null,
+      lastListingId: null,
+      lastChannelId: null,
       notes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -107,7 +114,14 @@ export class MemoryDb implements TelegramDb {
 
   async createLead(
     data: Pick<LeadRow, "source" | "externalId" | "externalUsername" | "name"> &
-      Partial<Pick<LeadRow, "positionId">>,
+      Partial<
+        Pick<LeadRow, "positionId"> & {
+          firstListingId: string | null;
+          firstChannelId: string | null;
+          lastListingId: string | null;
+          lastChannelId: string | null;
+        }
+      >,
   ): Promise<LeadRow> {
     const lead: LeadRow = {
       id: `lead-${this.leads.length + 1}`,
@@ -120,6 +134,10 @@ export class MemoryDb implements TelegramDb {
       interest: null,
       status: "NEW",
       positionId: data.positionId ?? null,
+      firstListingId: data.firstListingId ?? null,
+      firstChannelId: data.firstChannelId ?? null,
+      lastListingId: data.lastListingId ?? null,
+      lastChannelId: data.lastChannelId ?? null,
       notes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -131,13 +149,34 @@ export class MemoryDb implements TelegramDb {
   async updateLead(
     id: string,
     patch: Partial<
-      Pick<LeadRow, "status" | "notes" | "interest" | "positionId" | "externalUsername" | "phone" | "region">
+      Pick<
+        LeadRow,
+        "status" | "notes" | "interest" | "positionId" | "externalUsername" | "phone" | "region"
+      > & {
+        firstListingId: string | null;
+        firstChannelId: string | null;
+        lastListingId: string | null;
+        lastChannelId: string | null;
+      }
     >,
   ): Promise<LeadRow> {
     const lead = this.leads.find((l) => l.id === id);
     if (!lead) throw new Error(`LEAD_NOT_FOUND:${id}`);
     Object.assign(lead, patch, { updatedAt: new Date() });
     return lead;
+  }
+
+  async listingTouch(listingId: string): Promise<{ listingId: string; positionId: string; channelId: string } | null> {
+    return this.listingTouches.find((t) => t.listingId === listingId) ?? null;
+  }
+
+  async recordLeadTouch(leadId: string, listingId: string, channelId: string): Promise<void> {
+    const existing = this.touches.find((t) => t.leadId === leadId && t.listingId === listingId);
+    if (existing) {
+      existing.channelId = channelId;
+      return;
+    }
+    this.touches.push({ leadId, listingId, channelId, createdAt: new Date() });
   }
 
   async createMessage(

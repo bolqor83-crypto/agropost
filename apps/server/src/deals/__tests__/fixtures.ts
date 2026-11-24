@@ -43,6 +43,9 @@ export function positionFixture(): PositionRow {
     supplierPrice: 80,
     salePrice: 100,
     supplierLocation: "PAVLOVSKAYA",
+    /* Этап 5.1: данные поставщика для снимка сделки. */
+    supplierName: "Агро-Юг",
+    supplierShippingMode: "SELF_LOADS",
   };
 }
 

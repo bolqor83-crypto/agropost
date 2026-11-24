@@ -24,6 +24,14 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    /* PWA-приватность (этап 5.1): SW кеширует ТОЛЬКО статическую
+       оболочку (precache манифест: index.html, css, js, иконки).
+       runtimeCaching НЕ настраивается — приватные ответы /api
+       (профиль, реквизиты, сделки, лиды) в кеш SW не попадают:
+       другой пользователь устройства их не прочтёт. Offline работает
+       для оболочки (NavigationRoute → precache), данные — онлайн.
+       Если появится офлайн-режим данных — кешировать только
+       не-чувствительные эндпоинты и вычищать при logout. */
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],

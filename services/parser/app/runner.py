@@ -1,7 +1,9 @@
 """Оркестратор прогона: адаптеры → строки цен → база → статистика.
 
-Один прогон = Агросервер + Telegram (каждый адаптер изолирован:
-упал один — второй всё равно отработает, сервис живёт).
+Этап 5.1: MTProto-сбор публичных Telegram-каналов ВЫКЛЮЧЕН по
+умолчанию (TG_COLLECT_ENABLED=0). Даже если источник указан явно —
+адаптер отвечает «disabled», сбор запрещённых данных не идёт.
+Агросервер работает по robots.txt (fail-closed, см. adapters).
 """
 
 from __future__ import annotations
@@ -70,9 +72,19 @@ async def run_collection(
     if "TELEGRAM" in report.sources:
         adapter = TelegramAdapter()
         try:
-            tg_rows, stats = await adapter.collect(report.queries)
-            rows.extend(tg_rows)
-            report.telegram = {**stats.as_dict(), "found": len(tg_rows)}
+            if not adapter.collect_enabled():
+                report.telegram = {
+                    "status": "disabled",
+                    "note": (
+                        "MTProto-сбор публичных каналов выключен по умолчанию "
+                        "(TG_COLLECT_ENABLED=0): включайте только для источников, "
+                        "на обработку которых есть подтверждённое право"
+                    ),
+                }
+            else:
+                tg_rows, stats = await adapter.collect(report.queries)
+                rows.extend(tg_rows)
+                report.telegram = {**stats.as_dict(), "found": len(tg_rows)}
         finally:
             await adapter.close()
 
