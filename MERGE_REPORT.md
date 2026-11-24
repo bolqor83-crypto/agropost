@@ -117,8 +117,13 @@ Deal 0, Document 0, Shipment 0, CompetitorPrice 0, BotConfig 0.
 
 ### 4.1 Коммит для деплоя
 
-**`4484c5a`** (полный: `4484c5a6bc7a3f42fb72f9dbcbb7660d41cda4ae`) — текущий
-`origin/main`. Деплоить оба сервиса именно с него.
+Мерж-коммит: **`4484c5a`** (полный:
+`4484c5a6bc7a3f42fb72f9dbcbb7660d41cda4ae`). Поверх него в main добавлены
+только доковские коммиты (включая этот отчёт) — на сборку и рантайм они не
+влияют, поэтому в Render проще всего: **Manual Deploy → Deploy latest
+commit** (это всегда безопасный выбор: tip main функционально = 4484c5a).
+Если хотите указать SHA вручную — берите текущий tip `origin/main`
+(виден в GitHub над списком коммитов).
 
 ### 4.2 Переменные Render → `agropost-api` (Environment)
 
@@ -158,8 +163,8 @@ npx tsx scripts/hash-password        # интерактивный скрытый
 уничтожением сессии (`lib/logout.ts`), фиксы API-клиента (cookies,
 Content-Type), CSV-экспорт, правки аналитики. Старая статика не умеет вход:
 после обновления API приватные маршруты требуют сессию, и устаревший фронт
-начнёт получать 401. В Render → `agropost-web` → Manual Deploy → Deploy
-latest commit (`4484c5a`). Меняется только статика — сборка та же
+начнёт получать 401. В Render → `agropost-web` → Manual Deploy → Deploy latest
+commit. Меняется только статика — сборка та же
 (`npm run build`), новая env для web не нужна (`VITE_API_URL` уже задан).
 
 Порядок: сначала `agropost-api` (миграции применит startCommand), затем
@@ -191,7 +196,7 @@ curl -s -X POST $API/api/ai/advice -H 'Content-Type: application/json' \
 
 ## 5. Итог
 
-- Мерж выполнен и запушен: `main = 4484c5a`.
+- Мерж выполнен и запушен: main = `4484c5a` + доковские коммиты поверх.
 - Все тесты после мержа зелёные (180 + 13 + 39, parser 2 skip by design).
 - Миграции проверены на точной копии прод-базы: 3 новые миграции применяются
   чисто, данные целы, идемпотентно, 0 расхождений со схемой.
