@@ -13,6 +13,7 @@ import type {
   DocumentType,
 } from "@shared/types";
 import type { SupplierLocation } from "@shared/types";
+import type { Storage } from "../storage/types.js";
 
 /* ---------- Строки (плоские отображения Prisma) ---------- */
 
@@ -192,10 +193,12 @@ export interface DealsDb {
 
 /* ---------- Зависимости сервиса ---------- */
 
+/** ЭТАП 6: файловое хранилище (base64|r2), по умолчанию — getStorage(). */
 export interface DealsDeps {
   db: DealsDb;
   /** AI-план логистики (слой 3.0); подменяется в тестах. */
   planLogistics?: (
     input: AiLogisticsInput,
   ) => Promise<{ data: AiLogisticsData; warnings: string[]; meta: AiMeta }>;
+  storage?: Storage;
 }

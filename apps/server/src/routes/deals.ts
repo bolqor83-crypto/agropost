@@ -258,10 +258,15 @@ export async function dealsRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  /* Скачивание PDF: бинарный ответ с вложением. */
+  /* Скачивание PDF: бинарный ответ с вложением.
+     ЭТАП 6: R2-режим — редирект на публичный URL бакета. */
   app.get("/api/documents/:id/file", async (req, reply) => {
     const id = (req.params as { id: string }).id;
     const file = await mapDocumentsError(findDocumentFile(id, deps));
+    if (file.kind === "remote") {
+      reply.redirect(file.url, 302);
+      return reply;
+    }
     reply.header("Content-Type", "application/pdf");
     reply.header(
       "Content-Disposition",

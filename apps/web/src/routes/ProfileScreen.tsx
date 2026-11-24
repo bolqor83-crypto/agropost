@@ -56,7 +56,8 @@ export function ProfileScreen() {
           setBank(p.bank ?? "");
           setBik(p.bik ?? "");
           setAccount(p.account ?? "");
-          setTaxMode(p.dealTaxMode);
+          /* ЭТАП 6: guard от неожидаемого значения — экран не падает. */
+          setTaxMode(p.dealTaxMode ?? "IP_6");
         }
       })
       .catch((err) => showToast(err instanceof Error ? err.message : "Профиль не загрузился"))

@@ -100,6 +100,18 @@ export const mediaCreateSchema = z.object({
   watermark: z.boolean().optional(),
 });
 
+/** ЭТАП 6: JSON-загрузка медиа через сервер (data-URL + тип). */
+export const mediaUploadSchema = z.object({
+  dataUrl: z
+    .string()
+    .trim()
+    .min(30, "Пустой файл")
+    .max(34_500_000, "Файл больше 25 МБ")
+    .regex(/^data:[a-z0-9/+.-]+;base64,/, "Ожидается файл как data-URL (base64)"),
+  type: mediaTypeSchema,
+  watermark: z.boolean().optional(),
+});
+
 /* ---------- Этап 2: каналы, аккаунты, размещения ---------- */
 
 export const channelTypeSchema = z.enum([
@@ -384,6 +396,16 @@ export const dealCalculateSchema = z.object({
 export const claimCreateSchema = z.object({
   dealId: z.string().trim().min(1, "Не указана сделка"),
   description: z.string().trim().min(1, "Опишите претензию").max(4000, "Описание — до 4000 символов"),
+});
+
+/** ЭТАП 6: фото рекламации — data-URL (JPEG/PNG/WebP, лимит размера на сервисе). */
+export const claimPhotoSchema = z.object({
+  dataUrl: z
+    .string()
+    .trim()
+    .min(30, "Пустой файл")
+    .max(14_500_000, "Фото больше 10 МБ — уменьшите перед загрузкой")
+    .regex(/^data:image\/(jpeg|png|webp);base64,/, "Ожидается фото JPEG, PNG или WebP"),
 });
 
 export const claimUpdateSchema = z

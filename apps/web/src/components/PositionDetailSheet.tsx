@@ -281,7 +281,7 @@ export function PositionDetailSheet({
         ))}
       </div>
       <p className="mt-1.5 px-1 text-[11px] font-medium text-soft">
-        Фото и видео от поставщика · загрузка в R2 (до 15 мин на ссылку)
+        Фото и видео от поставщика · можно добавить в мастере позиции
       </p>
 
       {/* Сертификаты */}

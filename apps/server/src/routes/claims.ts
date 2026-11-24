@@ -8,9 +8,9 @@ import type { FastifyInstance } from "fastify";
 import type { ClaimDTO } from "@shared/types";
 import { notFound } from "../errors.js";
 import { parseOrThrow } from "../validation.js";
-import { claimCreateSchema, claimStatusSchema, claimUpdateSchema } from "../validation.js";
+import { claimCreateSchema, claimPhotoSchema, claimStatusSchema, claimUpdateSchema } from "../validation.js";
 import { prismaDealsDb } from "../deals/db.js";
-import { createClaim, listClaims, updateClaim } from "../deals/service.js";
+import { addClaimPhoto, createClaim, listClaims, removeClaimPhoto, updateClaim } from "../deals/service.js";
 import type { ClaimRow } from "../deals/types.js";
 
 const deps = { db: prismaDealsDb };
@@ -51,6 +51,27 @@ export async function claimsRoutes(app: FastifyInstance): Promise<void> {
     const id = (req.params as { id: string }).id;
     const input = parseOrThrow(claimUpdateSchema, req.body ?? {});
     const row = await updateClaim(id, input, deps);
+    if (!row) throw notFound("Рекламация не найдена");
+    return { ok: true, ...toClaimDTO(row) };
+  });
+
+  /* ЭТАП 6: фото рекламаций — data-URL через единое хранилище
+     (base64 в БД сейчас; R2 настроен → файл в бакете, url в БД). */
+  app.post(
+    "/api/claims/:id/photos",
+    { bodyLimit: 16 * 1024 * 1024 },
+    async (req) => {
+      const id = (req.params as { id: string }).id;
+      const input = parseOrThrow(claimPhotoSchema, req.body ?? {});
+      const result = await addClaimPhoto(id, input.dataUrl, deps);
+      return { ok: true, ...toClaimDTO(result.claim), storage: result.storage };
+    },
+  );
+
+  /* ЭТАП 6: убрать фото по индексу (0-based). */
+  app.delete("/api/claims/:id/photos/:index", async (req) => {
+    const { id, index } = req.params as { id: string; index: string };
+    const row = await removeClaimPhoto(id, Number(index), deps);
     if (!row) throw notFound("Рекламация не найдена");
     return { ok: true, ...toClaimDTO(row) };
   });

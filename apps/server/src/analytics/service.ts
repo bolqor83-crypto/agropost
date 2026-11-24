@@ -212,61 +212,55 @@ export interface ReadinessFacts {
   aiConfigured: boolean;
   /** R2 настроен (медиа): endpoint + ключи. */
   r2Configured: boolean;
-  /** Этап 5.1: парсер цен настроен (PARSER_URL + PARSER_SECRET). */
-  parserConfigured: boolean;
 }
 
+/**
+ * ЭТАП 6: чек-лист «Перед запуском» — 7 пунктов запуска
+ * (парсер цен выведен из списка: он опционален и не мешает запуску).
+ */
 export function buildReadiness(facts: ReadinessFacts): ReadinessDTO {
   const items: ReadinessItem[] = [
     {
       id: "requisites",
-      label: "Заполнены реквизиты",
+      label: "Реквизиты заполнены",
       done: facts.sellerComplete,
       hint: "«Ещё» → «Реквизиты и налог»: ИНН, ОГРНИП, адрес, банк, БИК, счёт",
     },
     {
       id: "supplier",
-      label: "Добавлен хотя бы один поставщик",
+      label: "Поставщик добавлен",
       done: facts.suppliersCount > 0,
       hint: "«Ещё» → «Поставщики» — справочник закупок",
     },
     {
       id: "position",
-      label: "Добавлена хотя бы одна позиция",
+      label: "Позиция добавлена",
       done: facts.positionsCount > 0,
       hint: "«Позиции и остатки»: культура, атрибуты, цена и остаток",
     },
     {
       id: "channel",
-      label: "Добавлен хотя бы один канал",
+      label: "Канал добавлен",
       done: facts.channelsCount > 0,
       hint: "«Каналы» — площадки для объявлений, по тегам работает подбор",
     },
     {
       id: "bot",
-      label: "Бот добавлен в канал",
+      label: "Бот добавлен админом в канал",
       done: facts.botInChannel,
-      hint: "«Ещё» → «Telegram-бот»: добавить бота администратором в свой канал",
+      hint: "Добавьте @aylatica_sales_bot администратором в свой Telegram-канал",
     },
     {
       id: "ai",
-      label: "AI-ключ добавлен",
+      label: "OPENROUTER_API_KEY задан (для AI)",
       done: facts.aiConfigured,
-      hint: "Render → agropost-api → Environment: GLM_API_KEY или OPENROUTER_API_KEY",
-      optional: true,
+      hint: "Render → agropost-api → Environment: OPENROUTER_API_KEY (или GLM_API_KEY)",
     },
     {
       id: "r2",
-      label: "R2 настроен (медиа)",
+      label: "R2 настроен (для фото)",
       done: facts.r2Configured,
-      hint: "Render env: R2_ENDPOINT, ключи и bucket — для фото позиций",
-      optional: true,
-    },
-    {
-      id: "parser",
-      label: "Парсер цен настроен",
-      done: facts.parserConfigured,
-      hint: "Render env: PARSER_URL + PARSER_SECRET (сервис services/parser) — без него «Рынок» пустой",
+      hint: "Опционально: Render env — R2_ENDPOINT, ключи и bucket. Без R2 файлы хранятся в базе",
       optional: true,
     },
   ];

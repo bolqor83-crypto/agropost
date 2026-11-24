@@ -18,6 +18,7 @@ import {
   type PositionSort,
 } from "../analytics/service.js";
 import { loadAiConfig } from "../ai/config.js";
+import { storageMode } from "../storage/factory.js";
 
 const periodSchema = z.enum(["week", "month", "all"]);
 const channelSortSchema = z.enum(["margin", "leads"]);
@@ -53,16 +54,8 @@ async function readinessFacts() {
     prisma.botConfig.count(),
   ]);
   const ai = loadAiConfig();
-  const r2Configured = Boolean(
-    process.env.R2_ENDPOINT &&
-      process.env.R2_ACCESS_KEY_ID &&
-      process.env.R2_SECRET_ACCESS_KEY &&
-      process.env.R2_BUCKET,
-  );
-  /* Этап 5.1: парсер честно отражён в чек-листе — без него «Рынок» пустой. */
-  const parserConfigured = Boolean(
-    process.env.PARSER_URL?.trim() && process.env.PARSER_SECRET?.trim(),
-  );
+  /* ЭТАП 6: режим R2 — общая проверка factory (5 значений + R2_CONFIGURED). */
+  const r2Configured = storageMode(process.env) === "r2";
   return {
     sellerComplete: seller ? sellerRequisitesComplete(seller) : false,
     suppliersCount,
@@ -71,7 +64,6 @@ async function readinessFacts() {
     botInChannel: botConfigs > 0,
     aiConfigured: Boolean(ai.glmApiKey || ai.openrouterApiKey),
     r2Configured,
-    parserConfigured,
   };
 }
 

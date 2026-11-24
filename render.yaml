@@ -64,6 +64,9 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: openai/gpt-4o-mini
+      # Этап 6: R2 включается автоматически, когда все 5 значений заданы.
+      # R2_CONFIGURED — необязательный ручной переключатель (true/false);
+      # без R2 файлы хранятся в базе (base64), приложение работает.
       - key: R2_ENDPOINT
         sync: false
       - key: R2_BUCKET

@@ -54,6 +54,7 @@ import type {
   ListingDTO,
   ListingUpdateInput,
   MarketDTO,
+  MediaDTO,
   MediaUploadDTO,
   ParserRunDTO,
   PositionDTO,
@@ -225,6 +226,28 @@ export async function putFile(uploadUrl: string, file: File, headers: Record<str
   if (!res.ok) throw new ApiError(res.status, "UPLOAD_FAILED", "Не удалось загрузить файл");
 }
 
+/** ЭТАП 6: JSON-загрузка через сервер и единое хранилище
+    (без R2 — base64 в БД; с R2 — объект в бакете). */
+export function uploadPositionMedia(
+  positionId: string,
+  input: { dataUrl: string; type: "PHOTO" | "VIDEO"; watermark?: boolean },
+): Promise<{ ok: boolean; media: MediaDTO; storage: "base64" | "r2" }> {
+  return request(`/positions/${positionId}/media/upload`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Прочитать File как data-URL (для JSON-загрузки через сервер). */
+export function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function deleteMedia(positionId: string, mediaId: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/positions/${positionId}/media/${mediaId}`, {
     method: "DELETE",
@@ -267,13 +290,17 @@ export function getAuthSession(): Promise<AuthSessionDTO> {
   return request<AuthSessionDTO>("/auth/session");
 }
 
-export function getMeta(): Promise<{
+export interface MetaDTO {
   ok: boolean;
   name: string;
   version: string;
   stage: number;
   stages: Record<string, boolean>;
-}> {
+  /** ЭТАП 6: режим файлового хранилища (base64 | r2). */
+  storage: { mode: "base64" | "r2" };
+}
+
+export function getMeta(): Promise<MetaDTO> {
   return request("/meta");
 }
 
@@ -629,6 +656,19 @@ export function createClaim(input: ClaimCreateInput): Promise<ClaimDTO> {
 
 export function updateClaim(id: string, patch: ClaimUpdateInput): Promise<ClaimDTO> {
   return request<ClaimDTO>(`/claims/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+/* ЭТАП 6: фото рекламаций — через единое хранилище (base64 в БД | R2). */
+
+export function addClaimPhoto(claimId: string, dataUrl: string): Promise<ClaimDTO & { storage: "base64" | "r2" }> {
+  return request(`/claims/${claimId}/photos`, {
+    method: "POST",
+    body: JSON.stringify({ dataUrl }),
+  });
+}
+
+export function deleteClaimPhoto(claimId: string, index: number): Promise<ClaimDTO> {
+  return request(`/claims/${claimId}/photos/${index}`, { method: "DELETE" });
 }
 
 /* ---------- Этап 5: аналитика ---------- */

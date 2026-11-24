@@ -102,10 +102,12 @@ function DocumentRow({ doc, onDownload }: { doc: DocumentDTO; onDownload: () => 
 function ClaimRow({
   claim,
   onUpdate,
+  onPhotoDeleted,
   busy,
 }: {
   claim: ClaimDTO;
   onUpdate: (patch: ClaimUpdateInput) => void;
+  onPhotoDeleted: (index: number) => void;
   busy: boolean;
 }) {
   return (
@@ -120,6 +122,31 @@ function ClaimRow({
       </div>
       {claim.resolution && (
         <p className="mt-1 text-[12px] font-medium text-soft">Решение: {claim.resolution}</p>
+      )}
+
+      {/* ЭТАП 6: фото претензии — галерея + удаление. */}
+      {claim.photos.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto soft-scroll" aria-label="Фото рекламации">
+          {claim.photos.map((url, i) => (
+            <div key={`${i}-${url.slice(0, 24)}`} className="relative shrink-0">
+              <img
+                src={url}
+                alt={`Фото ${i + 1}`}
+                className="h-20 w-20 rounded-[14px] border border-line object-cover"
+                loading="lazy"
+              />
+              <button
+                type="button"
+                aria-label={`Удалить фото ${i + 1}`}
+                disabled={busy}
+                onClick={() => onPhotoDeleted(i)}
+                className="press absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-ink text-white disabled:opacity-50"
+              >
+                <XCircle size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
       {claim.status !== "RESOLVED" && claim.status !== "REJECTED" && (
         <div className="flex flex-wrap gap-2 pt-2">
@@ -343,6 +370,9 @@ export function DealDetailSheet({
                 busy={busy}
                 onUpdate={(patch) =>
                   void refresh(() => api.updateClaim(claim.id, patch), "Рекламация обновлена")
+                }
+                onPhotoDeleted={(index) =>
+                  void refresh(() => api.deleteClaimPhoto(claim.id, index), "Фото удалено")
                 }
               />
             ))}

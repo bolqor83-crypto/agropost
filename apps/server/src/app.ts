@@ -41,6 +41,7 @@ import { claimsRoutes } from "./routes/claims.js";
 import { carrierRoutes } from "./routes/carriers.js";
 import { analyticsRoutes } from "./routes/analytics.js";
 import { getTelegram } from "./telegram/index.js";
+import { getStorage } from "./storage/factory.js";
 
 export interface BuildAppOptions {
   /**
@@ -58,6 +59,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const app = Fastify({
     logger: true,
   });
+
+  /* ЭТАП 6: честное предупреждение при старте — R2 не настроен,
+     файлы (PDF, фото рекламаций, медиа) хранятся в базе. */
+  const storage = getStorage();
+  if (storage.mode === "base64") {
+    app.log.warn(
+      "R2 не настроен — файлы хранятся в базе (base64). Приложение работает; " +
+        "для фото/документов в объектном хранилище задайте R2_* переменные (README «Как настроить R2»)",
+    );
+  }
 
   /* ЭТАП 5.2 (аудит): пустое JSON-тело = валидный запрос без данных.
    *

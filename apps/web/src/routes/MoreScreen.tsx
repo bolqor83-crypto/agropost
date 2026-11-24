@@ -218,7 +218,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · этап 5 из 6 · Warm Utility
+            АгроПост · этап 6 из 6 · Warm Utility
           </p>
         </div>
       </section>

@@ -106,7 +106,9 @@ export function deriveDealTaxMode(taxMode: TaxMode, taxRate: number): DealTaxMod
   return taxRate <= 0.04 ? "SELF_EMPLOYED_4" : "SELF_EMPLOYED_6";
 }
 
-/** Обратное отображение: режим сделки → TaxMode + taxRate профиля. */
+/** Обратное отображение: режим сделки → TaxMode + taxRate профиля.
+ * ЭТАП 6: default вместо падения — при неожидаемом значении (кривые данные,
+ * старый кеш) UI продолжает работать, показывая безопасный ИП 6%. */
 export function dealTaxModeToProfile(
   mode: DealTaxMode,
 ): { taxMode: TaxMode; taxRate: number } {
@@ -116,6 +118,7 @@ export function dealTaxModeToProfile(
     case "SELF_EMPLOYED_4":
       return { taxMode: "SELF_EMPLOYED", taxRate: 0.04 };
     case "SELF_EMPLOYED_6":
+    default:
       return { taxMode: "SELF_EMPLOYED", taxRate: 0.06 };
   }
 }

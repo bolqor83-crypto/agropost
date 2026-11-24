@@ -84,6 +84,18 @@ html.dark {
 }
 .press:active { transform: scale(0.97); }
 
+/* ЭТАП 6: уважение к настройке «уменьшить движение» (iOS/Android):
+   анимации выключаются, интерфейс остаётся мгновенным. */
+@media (prefers-reduced-motion: reduce) {
+  .screen-rise,
+  .sheet-in,
+  .fade-in,
+  .press {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* Мягкий скроллбар */
 .soft-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
 .soft-scroll::-webkit-scrollbar-thumb {

@@ -2,8 +2,13 @@ import type { FastifyInstance } from "fastify";
 
 /**
  * Медиа и сертификаты позиций.
- * Загрузка: presigned PUT в R2 на 15 минут, Content-Type зашит в подпись.
- * Клиент: POST (получить ссылку) → PUT файла в R2 → готово.
+ *
+ * Два способа загрузки медиа (ЭТАП 6):
+ *  1. presigned PUT в R2 на 15 минут (браузер → бакет напрямую) —
+ *     работает при настроенном R2 (POST /media, без изменений с этапа 1);
+ *  2. POST /media/upload — файл как data-URL через сервер и единое
+ *     хранилище Storage: без R2 — base64 в БД, с R2 — объект в бакете.
+ *     Так мастер позиций грузит реальные фото и до настройки R2.
  *
  * Сертификаты — PDF. Медиа: JPEG/PNG/WebP, MP4/MOV.
  * Watermark — пока флаг на будущее наложение (этап 3).
@@ -14,9 +19,12 @@ import { ApiError, badRequest, notFound } from "../errors.js";
 import {
   certificateCreateSchema,
   mediaCreateSchema,
+  mediaUploadSchema,
   parseOrThrow,
 } from "../validation.js";
 import { deleteObjectBestEffort, isR2Configured, keyFromUrl, presignPut, publicUrl } from "../r2.js";
+import { getStorage } from "../storage/factory.js";
+import { uploadPositionMedia, type MediaRow } from "../media/service.js";
 import { mapCertificateRow, mapMediaRow } from "../media-mappers.js";
 
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -44,6 +52,21 @@ async function positionOr404(id: string) {
   if (!row) throw notFound("Позиция не найдена");
   return row;
 }
+
+/* ЭТАП 6: адаптер Prisma для сервиса загрузки медиа. */
+const mediaDeps = {
+  db: {
+    async positionExists(id: string): Promise<boolean> {
+      return (await prisma.supplierPosition.findUnique({ where: { id } })) !== null;
+    },
+    async createMediaPending(data: { positionId: string; type: "PHOTO" | "VIDEO"; watermark: boolean }): Promise<MediaRow> {
+      return prisma.media.create({ data: { ...data, url: "pending" } });
+    },
+    async updateMediaUrl(id: string, url: string): Promise<MediaRow> {
+      return prisma.media.update({ where: { id }, data: { url } });
+    },
+  },
+};
 
 export async function mediaRoutes(app: FastifyInstance): Promise<void> {
   /* ---------- Медиа ---------- */
@@ -83,10 +106,26 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     const media = await prisma.media.findUnique({ where: { id: mediaId } });
     if (!media || media.positionId !== id) throw notFound("Медиа не найдено");
     await prisma.media.delete({ where: { id: mediaId } });
+    /* ЭТАП 6: base64-файлы лежат в строке БД (удаляются вместе с ней),
+       R2-объекты — в бакете. deleteObjectBestEffort по прежнему пути. */
     const key = keyFromUrl(media.url);
     if (key) await deleteObjectBestEffort(key);
+    else await getStorage().delete(media.url);
     return { ok: true };
   });
+
+  /* ЭТАП 6: JSON-загрузка медиа через сервер и единое хранилище
+     (без R2 — base64 в БД, с R2 — объект в бакете; видео требует R2). */
+  app.post(
+    "/api/positions/:id/media/upload",
+    { bodyLimit: 36 * 1024 * 1024 },
+    async (req) => {
+      const { id } = req.params as { id: string };
+      const data = parseOrThrow(mediaUploadSchema, req.body ?? {});
+      const result = await uploadPositionMedia(id, data, mediaDeps);
+      return { ok: true, ...result };
+    },
+  );
 
   /* ---------- Сертификаты ---------- */
 

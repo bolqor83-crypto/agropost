@@ -357,8 +357,8 @@ describe("позиции (этап 5.1)", () => {
   });
 });
 
-describe("readiness (этап 5.1)", () => {
-  test("парсер цен — опциональный пункт чек-листа", () => {
+describe("readiness (этап 6 — 7 пунктов запуска)", () => {
+  test("7 пунктов, прогресс считается, парсер больше не в списке", () => {
     const dto = buildReadiness({
       sellerComplete: true,
       suppliersCount: 1,
@@ -367,12 +367,25 @@ describe("readiness (этап 5.1)", () => {
       botInChannel: true,
       aiConfigured: false,
       r2Configured: false,
-      parserConfigured: false,
     });
-    expect(dto.items.length).toBe(8);
-    expect(dto.items.find((i) => i.id === "parser")?.done).toBe(false);
-    expect(dto.items.find((i) => i.id === "parser")?.optional).toBe(true);
+    expect(dto.items.length).toBe(7);
+    expect(dto.total).toBe(7);
+    expect(dto.items.find((i) => i.id === "parser")).toBeUndefined();
+    expect(dto.items.find((i) => i.id === "ai")?.done).toBe(false);
     expect(dto.ready).toBe(5);
+  });
+
+  test("полный чек-лист — 7 из 7", () => {
+    const dto = buildReadiness({
+      sellerComplete: true,
+      suppliersCount: 2,
+      positionsCount: 3,
+      channelsCount: 1,
+      botInChannel: true,
+      aiConfigured: true,
+      r2Configured: true,
+    });
+    expect(dto.ready).toBe(7);
   });
 });
 

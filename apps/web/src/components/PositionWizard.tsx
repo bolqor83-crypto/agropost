@@ -2,12 +2,13 @@
  * Мастер создания позиции — 4 шага:
  * поставщик и культура → атрибуты по шаблону → цена и объём → медиа.
  *
- * Позиция создаётся одним POST после шага 3; выбранные на шаге 4 файлы
- * загружаются в R2 по presigned-ссылкам (15 минут). Без настроенного R2
- * позиция сохранится, файлы можно добавить позже.
+ * Позиция создаётся одним POST после шага 3. Файлы с шага 4 — через
+ * единое хранилище (ЭТАП 6): R2 настроен → напрямую из браузера по
+ * presigned-ссылке; без R2 → JSON-загрузкой через сервер, фото
+ * сохраняются в базе (медленно, но работает). Видео требует R2.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bean,
   Check,
@@ -27,7 +28,6 @@ import type {
   PositionStatus,
 } from "@shared/types";
 import * as api from "../api/client";
-import { ApiError } from "../api/client";
 import { useCatalog } from "../stores/catalog";
 import { useToastStore } from "../stores/publish";
 import { Btn, Chip, Field, Segmented, Sheet, TextInput, ToggleRow } from "./ui";
@@ -99,6 +99,18 @@ export function PositionWizard({
   /* Шаг 4 */
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [creating, setCreating] = useState(false);
+  /* ЭТАП 6: режим хранилища — R2 (presigned) или base64 (JSON через сервер). */
+  const [storageMode, setStorageMode] = useState<"base64" | "r2" | null>(null);
+
+  useEffect(() => {
+    /* ЭТАП 6: холодный старт/диплинк на /positions — каталог мог не
+    загрузиться (его грузит Пульт). Загружаем сами: load() идемпотентен. */
+    void load();
+    api
+      .getMeta()
+      .then((meta) => setStorageMode(meta.storage.mode))
+      .catch(() => setStorageMode("base64"));
+  }, [load]);
 
   const culture = useMemo(
     () => cultures.find((c) => c.id === cultureId) ?? null,
@@ -176,23 +188,34 @@ export function PositionWizard({
         status,
       });
 
-      /* Медиа: presigned PUT из браузера напрямую в R2 */
+      /* ЭТАП 6: медиа — через единое хранилище. R2 → presigned из браузера;
+      base64 → JSON через сервер (фото; видео в этом режиме не грузим). */
       if (files.length > 0) {
         const uploaded: MediaDTO[] = [];
         for (const { file } of files) {
           try {
             const isVideo = file.type.startsWith("video/");
-            const res = await api.requestMediaUpload(created.id, {
-              type: isVideo ? "VIDEO" : "PHOTO",
-              contentType: file.type,
-            });
-            await api.putFile(res.uploadUrl, file, res.headers);
-            uploaded.push(res.media);
-          } catch (err) {
-            if (err instanceof ApiError && err.code === "R2_NOT_CONFIGURED") {
-              showToast("R2 не настроен — позиция сохранена без файлов (см. README)");
-              break;
+            if (storageMode !== "r2") {
+              if (isVideo) {
+                showToast("Видео можно добавить после настройки R2 — позиция сохранена без него");
+                continue;
+              }
+              if (file.size > 8 * 1024 * 1024) {
+                showToast(`«${file.name}» больше 8 МБ — без R2 не сохранится, пропущено`);
+                continue;
+              }
+              const dataUrl = await api.readFileAsDataUrl(file);
+              const res = await api.uploadPositionMedia(created.id, { dataUrl, type: "PHOTO" });
+              uploaded.push(res.media);
+            } else {
+              const res = await api.requestMediaUpload(created.id, {
+                type: isVideo ? "VIDEO" : "PHOTO",
+                contentType: file.type,
+              });
+              await api.putFile(res.uploadUrl, file, res.headers);
+              uploaded.push(res.media);
             }
+          } catch (err) {
             showToast(err instanceof Error ? err.message : "Файл не загрузился");
           }
         }
@@ -476,10 +499,11 @@ export function PositionWizard({
           )}
 
           <div className="flex items-center gap-2 rounded-[14px] bg-subtle px-4 py-3">
-            <Chip tone="outline">R2</Chip>
+            <Chip tone={storageMode === "r2" ? "green" : "outline"}>{storageMode === "r2" ? "R2" : "БД"}</Chip>
             <p className="text-[12px] font-medium leading-relaxed text-soft">
-              Файлы уйдут напрямую в Cloudflare R2 по ссылке на 15 минут. Без настройки R2
-              позиция сохранится без медиа — добавите позже.
+              {storageMode === "r2"
+                ? "Файлы уйдут напрямую в Cloudflare R2 по ссылке на 15 минут."
+                : "R2 не настроен: фото будут сохранены в базе (медленно), рекомендуем настроить R2. Видео — только после настройки R2."}
             </p>
           </div>
 

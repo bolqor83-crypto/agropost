@@ -34,7 +34,17 @@ import {
 } from "../documents/generator.js";
 import { documentNumber, dealNumber } from "../documents/numbering.js";
 import type { DocumentData } from "../documents/types.js";
-import type { CarrierRow, DealRow, DealsDb, DealsDeps, ListDealsFilter } from "./types.js";
+import { getStorage } from "../storage/factory.js";
+import { parseDataUrl } from "../storage/types.js";
+import type { StorageMode } from "../storage/types.js";
+import type {
+  CarrierRow,
+  ClaimRow,
+  DealRow,
+  DealsDb,
+  DealsDeps,
+  ListDealsFilter,
+} from "./types.js";
 
 /* ---------- Справочник ТК ---------- */
 
@@ -494,7 +504,7 @@ export async function generateDealDocument(
   dealId: string,
   type: DocumentType,
   deps: DealsDeps,
-): Promise<{ buffer: Buffer; number: string; generatedAt: Date }> {
+): Promise<{ buffer: Buffer; number: string; generatedAt: Date; fileUrl: string }> {
   const db = deps.db;
   const bundle = await getDealBundle(dealId, deps);
   if (!bundle) throw notFound("Сделка не найдена");
@@ -576,15 +586,23 @@ export async function generateDealDocument(
     const count = await db.countDocuments(type);
     data.number = documentNumber(type, count);
     const buffer = await generateDocumentPdf(data);
+    /* ЭТАП 6: PDF — через единое хранилище (base64 → data-URL в БД;
+    R2 настроен → файл в бакете, в БД публичный URL). */
+    const storage = deps.storage ?? getStorage();
+    const stored = await storage.upload(
+      `documents/${deal.id}/${data.number}.pdf`,
+      "application/pdf",
+      buffer,
+    );
     try {
       await db.createDocument({
         dealId: deal.id,
         type,
         number: data.number,
-        fileUrl: `data:application/pdf;base64,${buffer.toString("base64")}`,
+        fileUrl: stored.url,
         generatedAt: data.generatedAt,
       });
-      return { buffer, number: data.number, generatedAt: data.generatedAt };
+      return { buffer, number: data.number, generatedAt: data.generatedAt, fileUrl: stored.url };
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") continue;
       throw err;
@@ -597,11 +615,20 @@ export function listDealDocuments(dealId: string, deps: DealsDeps) {
   return deps.db.listDocuments(dealId);
 }
 
-export async function findDocumentFile(id: string, deps: DealsDeps): Promise<{ buffer: Buffer; number: string; type: DocumentType }> {
+/** ЭТАП 6: файл документа — inline (base64 в БД) или remote (URL в R2). */
+export type DocumentFile =
+  | { kind: "inline"; buffer: Buffer; number: string; type: DocumentType }
+  | { kind: "remote"; url: string; number: string; type: DocumentType };
+
+export async function findDocumentFile(id: string, deps: DealsDeps): Promise<DocumentFile> {
   const doc = await deps.db.findDocument(id);
   if (!doc) throw notFound("Документ не найден");
+  if (/^https?:\/\//.test(doc.fileUrl)) {
+    /* R2: отдаём редирект на публичный URL бакета. */
+    return { kind: "remote", url: doc.fileUrl, number: doc.number, type: doc.type };
+  }
   const base64 = doc.fileUrl.split(",")[1] ?? "";
-  return { buffer: Buffer.from(base64, "base64"), number: doc.number, type: doc.type };
+  return { kind: "inline", buffer: Buffer.from(base64, "base64"), number: doc.number, type: doc.type };
 }
 
 /* ---------- Рекламации ---------- */
@@ -631,6 +658,74 @@ export async function updateClaim(id: string, input: ClaimUpdateInput, deps: Dea
 
 export function listClaims(filter: { dealId?: string; status?: ClaimStatus }, deps: DealsDeps) {
   return deps.db.listClaims(filter);
+}
+
+/* ---------- ЭТАП 6: фото рекламаций (через единое хранилище) ---------- */
+
+/** Лимиты фото рекламаций: типы, размер, максимальное количество. */
+export const CLAIM_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const CLAIM_PHOTO_MAX_BYTES = 10 * 1024 * 1024; /* 10 МБ */
+export const CLAIM_PHOTOS_MAX = 12;
+const CLAIM_PHOTO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export interface ClaimPhotoResult {
+  claim: ClaimRow;
+  storage: StorageMode;
+}
+
+/** Добавить фото к рекламации: data-URL → storage.upload → url в claim.photos. */
+export async function addClaimPhoto(
+  id: string,
+  dataUrl: string,
+  deps: DealsDeps,
+): Promise<ClaimPhotoResult> {
+  const claim = await deps.db.findClaim(id);
+  if (!claim) throw notFound("Рекламация не найдена");
+
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) throw badRequest("Ожидается фото как data-URL (base64)");
+  if (!CLAIM_PHOTO_TYPES.includes(parsed.mime as (typeof CLAIM_PHOTO_TYPES)[number])) {
+    throw badRequest("Фото рекламации — JPEG, PNG или WebP");
+  }
+  if (parsed.bytes.length === 0) throw badRequest("Пустой файл");
+  if (parsed.bytes.length > CLAIM_PHOTO_MAX_BYTES) {
+    throw badRequest("Фото больше 10 МБ — уменьшите перед загрузкой");
+  }
+  if (claim.photos.length >= CLAIM_PHOTOS_MAX) {
+    throw badRequest(`Максимум ${CLAIM_PHOTOS_MAX} фото на рекламацию`);
+  }
+
+  const storage = deps.storage ?? getStorage();
+  const ext = CLAIM_PHOTO_EXT[parsed.mime] ?? "jpg";
+  const key = `claims/${claim.id}/${claim.photos.length + 1}-${Date.now()}.${ext}`;
+  const stored = await storage.upload(key, parsed.mime, parsed.bytes);
+
+  const updated = await deps.db.updateClaim(id, { photos: [...claim.photos, stored.url] });
+  if (!updated) throw notFound("Рекламация не найдена");
+  return { claim: updated, storage: storage.mode };
+}
+
+/** Убрать фото по индексу (объект в R2 удаляется best-effort). */
+export async function removeClaimPhoto(
+  id: string,
+  index: number,
+  deps: DealsDeps,
+): Promise<ClaimRow> {
+  const claim = await deps.db.findClaim(id);
+  if (!claim) throw notFound("Рекламация не найдена");
+  if (!Number.isInteger(index) || index < 0 || index >= claim.photos.length) {
+    throw badRequest("Нет фото с таким номером");
+  }
+  const [removed] = claim.photos.splice(index, 1) as string[];
+  const storage = deps.storage ?? getStorage();
+  await storage.delete(removed);
+  const updated = await deps.db.updateClaim(id, { photos: claim.photos });
+  if (!updated) throw notFound("Рекламация не найдена");
+  return updated;
 }
 
 export type { DeliveryOptionDTO };
