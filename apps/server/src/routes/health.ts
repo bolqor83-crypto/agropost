@@ -5,7 +5,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/health", async () => ({
     ok: true,
     service: "agropost-api",
-    stage: 1,
+    stage: 2,
     time: new Date().toISOString(),
   }));
 }
