@@ -262,9 +262,9 @@ baseline отработает no-op'ом, stage51 добавит новое. Р�
 ## H. Git
 
 - Ветка: `fix/stage-5-1-security-analytics`
-- HEAD: `01902c36be13494bf022186c2debf33f5d7fdade`
-- Коммиты этапа: `01902c3 этап 5.1: безопасность и корректная аналитика`
-  (+ коммит с отчётом после файла)
+- HEAD (актуальный, с отчётом): `8afcc48`
+- Коммит кода: `01902c36be13494bf022186c2debf33f5d7fdade` — «этап 5.1: безопасность и корректная аналитика»
+- Коммит отчёта: `8afcc48` — «docs: отчёт этапа 5.1…»
 - Push: `origin/fix/stage-5-1-security-analytics` — успешно
   (PR: https://github.com/bolqor83-crypto/agropost/pull/new/fix/stage-5-1-security-analytics)
 - `main` и продакшен не изменялись: деплоя не было, миграции на прод не
