@@ -8,7 +8,7 @@
  * дни наличия — от stockSince (null → «неизвестно»).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, TrendingUp } from "lucide-react";
 import type {
@@ -21,6 +21,7 @@ import * as api from "../api/client";
 import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
 import { downloadCsv, toCsv } from "../lib/csv";
 import { Btn, Card, Chip, EmptyState, ScreenHeader, Segmented, Skeleton } from "../components/ui";
+import { NumberAnimated } from "../components/NumberAnimated";
 
 const PERIOD_ITEMS: { value: AnalyticsPeriod; label: string }[] = [
   { value: "week", label: "Неделя" },
@@ -58,24 +59,30 @@ function SummaryView({ data, period }: { data: AnalyticsSummaryDTO; period: Anal
 
       <Card className="p-4">
         <div className="grid grid-cols-2 gap-y-1">
-          <SummaryCell label="Выручка" value={fmtRub(data.revenue)} />
-          <SummaryCell label="Маржа" value={fmtRub(data.margin)} accent />
+          <SummaryCell label="Выручка" value={<NumberAnimated value={data.revenue} format={fmtRub} />} />
+          <SummaryCell label="Маржа" value={<NumberAnimated value={data.margin} format={fmtRub} />} accent />
           <SummaryCell label="Сделок" value={`${data.dealsTotal} (${data.dealsClosed} закр. · ${data.dealsActive} акт.)`} />
-          <SummaryCell label="Средний чек" value={data.averageCheck !== null ? fmtRub(data.averageCheck) : "—"} />
+          <SummaryCell label="Средний чек" value={data.averageCheck !== null ? <NumberAnimated value={data.averageCheck} format={fmtRub} /> : "—"} />
         </div>
       </Card>
 
       <Card className="p-4">
         <p className="text-[14px] font-semibold text-ink">Лиды и конверсия</p>
         <div className="grid grid-cols-2 gap-y-1">
-          <SummaryCell label="Лидов за период" value={fmtNum(data.leadsTotal)} />
-          <SummaryCell label="Стали сделками" value={fmtNum(data.leadsConverted)} />
+          <SummaryCell label="Лидов за период" value={<NumberAnimated value={data.leadsTotal} />} />
+          <SummaryCell label="Стали сделками" value={<NumberAnimated value={data.leadsConverted} />} />
           <SummaryCell
             label="Конверсия"
-            value={data.conversion !== null ? `${data.conversion}%` : "—"}
+            value={
+              data.conversion !== null ? (
+                <NumberAnimated value={data.conversion} format={(n) => `${n}%`} duration={450} />
+              ) : (
+                "—"
+              )
+            }
             accent
           />
-          <SummaryCell label="Новых сегодня" value={fmtNum(data.newLeadsToday)} />
+          <SummaryCell label="Новых сегодня" value={<NumberAnimated value={data.newLeadsToday} />} />
         </div>
       </Card>
 
@@ -126,7 +133,7 @@ function SummaryCell({
   accent = false,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   accent?: boolean;
 }) {
   return (
@@ -410,23 +417,28 @@ export function AnalyticsScreen() {
                 </Btn>
               </div>
             </Card>
-          ) : tab === "summary" ? (
-            summary && <SummaryView data={summary} period={period} />
-          ) : tab === "channels" ? (
-            channels !== null && (
-              <ChannelsView rows={channels} onExport={exportChannelsCsv} />
-            )
-          ) : positions !== null ? (
-            <PositionsView rows={positions} onExport={exportPositionsCsv} />
           ) : (
-            <Skeleton className="h-[92px] w-full rounded-[20px]" />
-          )}
+            /* ЭТАП 8: смена периода — мягкий fade контента 200ms (remount по key). */
+            <div key={period} className="fade-in-soft flex flex-col gap-3">
+              {tab === "summary" ? (
+                summary && <SummaryView data={summary} period={period} />
+              ) : tab === "channels" ? (
+                channels !== null && (
+                  <ChannelsView rows={channels} onExport={exportChannelsCsv} />
+                )
+              ) : positions !== null ? (
+                <PositionsView rows={positions} onExport={exportPositionsCsv} />
+              ) : (
+                <Skeleton className="h-[92px] w-full rounded-[20px]" />
+              )}
 
-          {tab === "summary" && summary !== null && !loading && (
-            <Btn variant="secondary" full onClick={exportSummaryCsv}>
-              <Download size={16} />
-              Экспорт в CSV
-            </Btn>
+              {tab === "summary" && summary !== null && !loading && (
+                <Btn variant="secondary" full onClick={exportSummaryCsv}>
+                  <Download size={16} />
+                  Экспорт в CSV
+                </Btn>
+              )}
+            </div>
           )}
 
           <button

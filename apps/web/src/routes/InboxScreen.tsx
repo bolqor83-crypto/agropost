@@ -68,7 +68,7 @@ function LeadRow({ lead, onOpen }: { lead: LeadDTO; onOpen: () => void }) {
       <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent-soft text-[15px] font-semibold uppercase text-accent">
         {leadTitle(lead).slice(0, 1)}
         {lead.status === "NEW" && (
-          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warm" />
+          <span className="pulse-soft absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warm" />
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -216,7 +216,7 @@ export function InboxScreen() {
             </div>
           </Card>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="stagger-children flex flex-col gap-3">
             {filtered.map((l) => (
               <LeadRow key={l.id} lead={l} onOpen={() => setOpenId(l.id)} />
             ))}

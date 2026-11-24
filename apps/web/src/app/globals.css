@@ -26,6 +26,44 @@
   --shadow-soft: 0 8px 24px rgba(44, 42, 39, 0.06);
 }
 
+/* ============================================================
+   ЭТАП 8 — токены движения, тени и градиента.
+
+   Проект на Tailwind 4 (CSS-first): расширение «tailwind.config»
+   здесь эквивалентно блоку @theme + CSS-переменным :root.
+   Тени НЕ через @theme (TW4 инлайнит их значения при сборке),
+   а как CSS-переменные — утилиты .shadow-1/2/3/accent в
+   interactions.css ссылаются на var(), поэтому в тёмной теме
+   тени меняются (glow вместо «тёмных теней»).
+
+   Жёсткое правило этапа: автономные анимации — ТОЛЬКО
+   transform и opacity (GPU). Тени/фон — только в переходах,
+   предписанных ТЗ (press/hover/flash).
+   ============================================================ */
+:root {
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 320ms;
+  --ease-out-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Elevation: 1 — едва заметно, 2 — текущий default, 3 — модалки/floating */
+  --shadow-1: 0 1px 2px rgba(44, 42, 39, 0.04);
+  --shadow-2: 0 4px 12px rgba(44, 42, 39, 0.06);
+  --shadow-3: 0 12px 32px rgba(44, 42, 39, 0.1);
+  --shadow-accent: 0 6px 20px rgba(62, 124, 90, 0.22);
+  --shadow-accent-soft: 0 4px 14px rgba(62, 124, 90, 0.14);
+
+  /* Акцентный градиент — ТОЛЬКО FAB и hero-кнопки (не «везде») */
+  --gradient-accent: linear-gradient(135deg, #3E7C5A 0%, #4A8F6A 100%);
+  --gradient-accent-hover: linear-gradient(135deg, #468A64 0%, #52A078 100%);
+
+  /* Ripple для primary-кнопок (в тёмной теме — тусклее) */
+  --ripple-color: rgba(255, 255, 255, 0.35);
+}
+
 html {
   background: var(--color-canvas);
 }
@@ -70,15 +108,27 @@ html.dark {
   --color-warm-soft: #3A2E24;
   --color-line: #3B3733;
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* ЭТАП 8: в тёмной теме тени — глубокие, градиент — чуть темнее,
+     ripple — слабее (0.25). */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-accent: 0 6px 20px rgba(111, 184, 144, 0.2);
+  --shadow-accent-soft: 0 4px 14px rgba(111, 184, 144, 0.12);
+  --gradient-accent: linear-gradient(135deg, #4A8F6A 0%, #5EA47F 100%);
+  --gradient-accent-hover: linear-gradient(135deg, #52A078 0%, #68B18C 100%);
+  --ripple-color: rgba(255, 255, 255, 0.25);
 }
 
 .screen-rise { animation: rise 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .sheet-in { animation: sheet-in 0.26s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fade-in { animation: fade-in 0.2s ease both; }
 
-/* Spring 200ms, scale 0.97 при нажатии */
+/* Press-состояние (этап 8: токены движения вместо литералов) */
 .press {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--motion-fast) var(--ease-out-spring),
+              box-shadow var(--motion-fast) var(--ease-out-smooth);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -94,6 +144,24 @@ html.dark {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ============================================================
+   ЭТАП 8 — View Transitions API: мягкая смена экранов.
+   Пара старый/новый снимок корня кросс-фейдится 200–220 мс.
+   В Safari (нет API) переход мгновенный — CSS просто не применяется.
+   ============================================================ */
+::view-transition-old(root) {
+  animation: vt-out 200ms var(--ease-in-out) both;
+}
+::view-transition-new(root) {
+  animation: vt-in 220ms var(--ease-out-smooth) both;
+}
+@keyframes vt-out {
+  to { opacity: 0; }
+}
+@keyframes vt-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 
 /* Мягкий скроллбар */

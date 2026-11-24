@@ -1,0 +1,357 @@
+/**
+ * ЭТАП 8 — базовый слой микро-интеракций «Warm Utility».
+ * Импортируется в main.tsx ПОСЛЕ globals.css.
+ *
+ * Жёсткие правила этапа:
+ *  - автономные анимации — только transform и opacity (GPU);
+ *  - все новые эффекты отключаются при prefers-reduced-motion: reduce
+ *    (kill-switch в конце файла);
+ *  - hover-эффекты — только @media (hover: hover) (десктоп, не тач);
+ *  - никаких width/height/top/left в анимациях (кроме прогресса тоста —
+ *    он на scaleX, что тоже transform).
+ */
+
+/* ============================================================
+   Elevation-утилиты из токенов (адаптируются к тёмной теме)
+   ============================================================ */
+.shadow-1 { box-shadow: var(--shadow-1); }
+.shadow-2 { box-shadow: var(--shadow-2); }
+.shadow-3 { box-shadow: var(--shadow-3); }
+.shadow-accent { box-shadow: var(--shadow-accent); }
+.shadow-accent-soft { box-shadow: var(--shadow-accent-soft); }
+
+/* ============================================================
+   1. Press state
+   ============================================================ */
+
+/* Кликая по карточке — почти нет сжатия (карточки крупнее кнопок). */
+.card-interactive {
+  transition: transform var(--motion-fast) var(--ease-out-spring),
+              box-shadow var(--motion-fast) var(--ease-out-smooth);
+}
+.card-interactive:active { transform: scale(0.99); }
+
+/* Hover — только десктоп (тач-устройствам hover не нужен) */
+@media (hover: hover) {
+  .card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-3);
+  }
+  /* Primary — тень акцентная, «кнопка дышит» */
+  .btn-primary:hover:not(:disabled) { box-shadow: var(--shadow-accent); }
+  /* Secondary/ghost — тихая смена фона */
+  .btn-secondary:hover:not(:disabled) { background-color: var(--color-subtle); }
+  .btn-ghost:hover:not(:disabled) { background-color: var(--color-line); }
+  /* Градиентные hero-кнопки */
+  .btn-gradient:hover:not(:disabled) {
+    box-shadow: var(--shadow-accent);
+    transform: translateY(-1px);
+  }
+  /* Иконка пустого состояния — лёгкий отклик */
+  .empty-icon { transition: transform var(--motion-slow) var(--ease-out-spring); }
+  .empty-icon:hover { transform: rotate(2deg) scale(1.04); }
+}
+
+/* FAB / главное действие: более глубокое нажатие */
+.press-deep:active { transform: scale(0.94); }
+
+/* ============================================================
+   2. Ripple (только primary + lg; спавнится из Button.tsx)
+   ============================================================ */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--ripple-color);
+  transform: scale(0);
+  opacity: 0.9;
+  pointer-events: none;
+  animation: ripple 500ms var(--ease-out-smooth) forwards;
+}
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* ============================================================
+   3. Focus ring — клавиатурная навигация
+   ============================================================ */
+:where(button, a, [role="button"], [role="tab"], [role="switch"], input, textarea, select):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-soft), 0 0 0 4px var(--color-accent);
+}
+
+/* ============================================================
+   4. Input states: тихий фокус + shake при ошибке
+   ============================================================ */
+.input-base {
+  transition: border-color var(--motion-fast) linear,
+              box-shadow var(--motion-fast) var(--ease-out-smooth);
+}
+.input-base:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.input-error {
+  border-color: var(--color-warm);
+  animation: shake 400ms var(--ease-in-out);
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* ============================================================
+   5. Skeleton shimmer (заменяет статичный animate-pulse)
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--color-subtle) 0%,
+    var(--skeleton-hi) 50%,
+    var(--color-subtle) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s var(--ease-in-out) infinite;
+  animation-delay: 60ms; /* чтобы не «мигал» при быстрой загрузке */
+}
+:root { --skeleton-hi: rgba(255, 255, 255, 0.6); }
+html.dark { --skeleton-hi: rgba(255, 255, 255, 0.06); }
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* ============================================================
+   6. Fade-in контента (после skeleton): подъём 4px
+   ============================================================ */
+.fade-in-soft {
+  animation: fade-in-soft var(--motion-base) var(--ease-out-smooth) both;
+}
+@keyframes fade-in-soft {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Пустые состояния: fadeIn + подъём 8px, 320ms */
+.empty-state {
+  animation: empty-in var(--motion-slow) var(--ease-out-smooth) both;
+}
+@keyframes empty-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   7. Stagger для списков (только при появлении — mount)
+   ============================================================ */
+.stagger-children > * {
+  animation: fade-in-soft 300ms var(--ease-out-smooth) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(n + 8) { animation-delay: 280ms; }
+
+/* ============================================================
+   8. Шаги мастера «Разместить»: slide 240ms
+   ============================================================ */
+.anim-step {
+  animation: step-in 240ms var(--ease-out-smooth) both;
+}
+@keyframes step-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================================
+   9. Тосты
+   ============================================================ */
+.toast-in {
+  animation: toast-in var(--motion-base) var(--ease-out-smooth) both;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-out {
+  animation: toast-out 180ms var(--ease-in-out) both;
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(-20px); }
+}
+/* Прогресс жизни тоста: 2.4s = таймер в stores/publish.ts */
+.toast-progress {
+  animation: toast-progress 2.4s linear forwards;
+  transform-origin: left;
+}
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* ============================================================
+   10. Мягкий пульс (NEW-бейдж, активный шаг таймлайна)
+       2s, едва заметно: opacity 0.6 → 1
+   ============================================================ */
+.pulse-soft {
+  animation: pulse-soft 2s var(--ease-in-out) infinite;
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ============================================================
+   11. «Думаю…» — три точки с рассинхроном
+   ============================================================ */
+.thinking-dots { display: inline-flex; gap: 3px; margin-left: 2px; }
+.thinking-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: dot-pulse 1.2s var(--ease-in-out) infinite;
+}
+.thinking-dots i:nth-child(2) { animation-delay: 150ms; }
+.thinking-dots i:nth-child(3) { animation-delay: 300ms; }
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ============================================================
+   12. Успех-флэш (оплата/отгрузка сделки, изменение показателя)
+       box-shadow inset — «рамка акцентом», гаснет за 800ms
+   ============================================================ */
+.flash-accent {
+  animation: flash-accent 800ms var(--ease-out-smooth) both;
+}
+@keyframes flash-accent {
+  0% { box-shadow: inset 0 0 0 1.5px var(--color-accent); }
+  70% { box-shadow: inset 0 0 0 1.5px var(--color-accent); }
+  100% { box-shadow: inset 0 0 0 1.5px transparent; }
+}
+.value-flash {
+  animation: value-flash 200ms linear both;
+}
+@keyframes value-flash {
+  0% { background-color: var(--color-accent-soft); }
+  100% { background-color: transparent; }
+}
+
+/* ============================================================
+   13. Градиент акцента (FAB, hero-кнопки, «Сгенерировать с AI»)
+   ============================================================ */
+.btn-gradient {
+  background-image: var(--gradient-accent);
+  box-shadow: var(--shadow-accent);
+}
+
+/* ============================================================
+   14. BottomNav: иконки-пружины
+       (равномерный translateX-pill невозможен: центральная
+       «Разместить»-кнопка авто-ширины — грид неравномерный.
+       Вместо этого пружинный pop активной иконки + tap 0.92.)
+   ============================================================ */
+.nav-icon {
+  transition: background-color var(--motion-base) var(--ease-out-smooth),
+              color var(--motion-base) linear,
+              transform var(--motion-base) var(--ease-out-spring),
+              scale var(--motion-base) var(--ease-out-spring);
+}
+.nav-btn:active .nav-icon { transform: scale(0.92); }
+.nav-fab-icon {
+  transition: transform var(--motion-base) var(--ease-out-spring);
+}
+.nav-fab:active .nav-fab-icon { transform: rotate(90deg); }
+.nav-fab:active { transform: translateY(-12px) scale(0.94); }
+
+/* ============================================================
+   15. Сегментированный переключатель: pill translateX
+   ============================================================ */
+.seg-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
+  transition: transform 260ms var(--ease-out-spring);
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* ============================================================
+   16. Sheet: выход + контент-stagger + handle
+   ============================================================ */
+.sheet-out {
+  animation: sheet-out 200ms var(--ease-in-out) both;
+}
+@keyframes sheet-out {
+  to { transform: translateY(100%); }
+}
+.backdrop-out {
+  animation: backdrop-out 180ms var(--ease-in-out) both;
+}
+@keyframes backdrop-out {
+  to { opacity: 0; }
+}
+.sheet-content {
+  animation: fade-in-soft 220ms var(--ease-out-smooth) 80ms both;
+}
+.sheet-handle {
+  transition: transform var(--motion-base) var(--ease-out-spring);
+}
+.sheet-handle:active { transform: scale(1.1); }
+
+/* ============================================================
+   Kill-switch: prefers-reduced-motion: reduce
+   ВСЕ новые анимации/переходы выключаются. Интерфейс мгновенный.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .card-interactive,
+  .card-interactive:hover,
+  .btn-primary:hover:not(:disabled),
+  .btn-secondary:hover:not(:disabled),
+  .btn-ghost:hover:not(:disabled),
+  .btn-gradient:hover:not(:disabled),
+  .empty-icon,
+  .empty-icon:hover,
+  .input-base,
+  .nav-icon,
+  .nav-btn:active .nav-icon,
+  .nav-fab-icon,
+  .nav-fab:active .nav-fab-icon,
+  .nav-fab:active,
+  .seg-pill,
+  .sheet-handle,
+  .sheet-handle:active {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .ripple,
+  .skeleton,
+  .fade-in-soft,
+  .empty-state,
+  .stagger-children > *,
+  .anim-step,
+  .toast-in,
+  .toast-out,
+  .toast-progress,
+  .pulse-soft,
+  .thinking-dots i,
+  .flash-accent,
+  .value-flash,
+  .sheet-out,
+  .backdrop-out,
+  .sheet-content {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Skeleton без shimmer — статичный фон */
+  .skeleton { animation: none !important; background: var(--color-subtle); }
+}

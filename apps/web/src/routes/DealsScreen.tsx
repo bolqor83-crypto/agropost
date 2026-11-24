@@ -14,6 +14,7 @@ import { useDealCreateStore } from "../stores/deal-create";
 import { useToastStore } from "../stores/publish";
 import { dealStatusTone, fmtNum, fmtRub, fmtWhen } from "../lib/format";
 import { Btn, Card, Chip, EmptyState, ScreenHeader, Segmented, Skeleton, TextInput } from "../components/ui";
+import { NumberAnimated } from "../components/NumberAnimated";
 import { DealDetailSheet } from "../components/DealDetailSheet";
 import { DealFormSheet } from "../components/DealFormSheet";
 
@@ -54,7 +55,7 @@ function DealCard({ deal, onOpen }: { deal: DealDetailDTO; onOpen: () => void })
           <p
             className={`text-[15px] font-semibold ${deal.margin > 0 ? "text-accent" : deal.margin < 0 ? "text-warm" : "text-soft"}`}
           >
-            {fmtRub(deal.margin)}
+            <NumberAnimated value={deal.margin} format={fmtRub} />
           </p>
         </div>
       </div>
@@ -186,7 +187,7 @@ export function DealsScreen() {
             )}
           </Card>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="stagger-children flex flex-col gap-3">
             {filtered.map((d) => (
               <DealCard key={d.id} deal={d} onOpen={() => setOpenId(d.id)} />
             ))}
@@ -194,12 +195,12 @@ export function DealsScreen() {
         )}
       </section>
 
-      {/* FAB: новая сделка */}
+      {/* FAB: новая сделка — ЭТАП 8: градиент accent + глубокое нажатие */}
       <button
         type="button"
         aria-label="Новая сделка"
         onClick={() => setFormOpen(true)}
-        className="press fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-40 inline-flex h-14 items-center gap-2 rounded-full bg-accent px-5 text-[15px] font-semibold text-white shadow-soft"
+        className="press press-deep btn-gradient fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-40 inline-flex h-14 items-center gap-2 rounded-full bg-accent px-5 text-[15px] font-semibold text-white"
       >
         <Plus size={18} />
         Новая сделка
@@ -225,7 +226,7 @@ export function DealsScreen() {
             setFormOpen(false);
             clearPending();
             void load(true);
-            showToast("Сделка создана — это черновик");
+            showToast("Сделка создана — это черновик", "success");
           }}
         />
       )}

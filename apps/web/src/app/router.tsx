@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, type NavigateOptions, type To } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { LoginScreen } from "../routes/LoginScreen";
 import { PultScreen } from "../routes/PultScreen";
@@ -13,6 +13,7 @@ import { SuppliersScreen } from "../routes/SuppliersScreen";
 import { PositionsScreen } from "../routes/PositionsScreen";
 import { ChannelsScreen } from "../routes/ChannelsScreen";
 import { AccountsScreen } from "../routes/AccountsScreen";
+import { withViewTransition } from "../lib/motion";
 
 /**
  * Маршруты приложения. Поставщики и позиции (этап 1), каналы и аккаунты
@@ -42,3 +43,17 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
+/**
+ * ЭТАП 8 — переходы между экранами через View Transitions API.
+ * useNavigate/Link/NavLink в data-router в итоге вызывают метод
+ * router.navigate ЭТОГО экземпляра (проверено по исходникам
+ * react-router 7.18: useNavigateStable → await router.navigate(...)).
+ * Оборачиваем его один раз здесь — и вся навигация приложения
+ * получает мягкий кросс-фейд 200–220ms (::view-transition- в globals.css).
+ * Браузеры без API (Safari) и prefers-reduced-motion — мгновенно
+ * (withViewTransition сам проверяет и деградирует тихо).
+ */
+const originalNavigate = router.navigate.bind(router);
+router.navigate = ((to: To, opts?: NavigateOptions) =>
+  withViewTransition(() => originalNavigate(to, opts))) as typeof router.navigate;

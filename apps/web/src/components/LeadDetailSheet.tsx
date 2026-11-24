@@ -120,6 +120,7 @@ export function LeadDetailSheet({
       setDraftAiCallId(null); /* сервер не возвращает id AiCall — отправим текст как есть */
       showToast(
         res.meta.provider === "fallback" ? "Черновик по шаблону — AI недоступен" : "Черновик готов",
+        "success",
       );
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Не удалось собрать черновик");
@@ -140,7 +141,7 @@ export function LeadDetailSheet({
       setDraftText("");
       setDraftMeta(null);
       setDraftAiCallId(null);
-      showToast("Ответ отправлен покупателю");
+      showToast("Ответ отправлен покупателю", "success");
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Не удалось отправить ответ");
@@ -166,7 +167,7 @@ export function LeadDetailSheet({
     if (!lead || value === (lead.notes ?? "")) return;
     try {
       await api.updateLead(leadId, { notes: value });
-      showToast("Заметка сохранена");
+      showToast("Заметка сохранена", "success");
       onChanged?.();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Не удалось сохранить заметку");
@@ -247,10 +248,21 @@ export function LeadDetailSheet({
                 type="button"
                 onClick={() => void makeDraft()}
                 disabled={draftLoading}
-                className="press inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white shadow-soft disabled:opacity-40"
+                className="press btn-gradient inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
               >
                 <Sparkles size={13} className={draftLoading ? "animate-spin" : ""} />
-                {draftLoading ? "Думаю…" : "Черновик AI"}
+                {draftLoading ? (
+                  <>
+                    Думаю
+                    <span className="thinking-dots" aria-hidden>
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </>
+                ) : (
+                  "Черновик AI"
+                )}
               </button>
             </div>
 
@@ -279,6 +291,7 @@ export function LeadDetailSheet({
               <Btn
                 full
                 disabled={!draftText.trim() || sending}
+                loading={sending}
                 onClick={() => void sendReply()}
                 ariaLabel="Отправить ответ покупателю"
               >

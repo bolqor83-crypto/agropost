@@ -60,7 +60,9 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="screen-rise flex min-h-screen flex-col justify-center bg-canvas px-5 py-10">
+    /* main — семантический landmark (a11y): экран входа вне AppShell,
+       у него нет <main>; визуально тег <main> вместо <div> ничего не меняет. */
+    <main className="screen-rise flex min-h-screen flex-col justify-center bg-canvas px-5 py-10">
       <div className="mx-auto w-full max-w-[420px]">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="grid h-16 w-16 place-items-center rounded-[22px] bg-accent text-white shadow-soft">
@@ -90,6 +92,7 @@ export function LoginScreen() {
                 inputMode="text"
                 placeholder="логин владельца"
                 autoFocus
+                error={Boolean(error)}
               />
             </Field>
             <Field label="Пароль" required>
@@ -99,14 +102,15 @@ export function LoginScreen() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 placeholder="••••••••"
+                error={Boolean(error)}
               />
             </Field>
 
             {error && <p className="px-1 text-[13px] font-semibold text-warm">{error}</p>}
 
-            <Btn type="submit" full size="lg" disabled={busy || checking}>
+            <Btn type="submit" full size="lg" disabled={busy || checking} loading={busy}>
               <LogIn size={18} />
-              {busy ? "Проверяем…" : "Войти"}
+              Войти
             </Btn>
           </form>
         </Card>
@@ -119,6 +123,6 @@ export function LoginScreen() {
           Открытой регистрации в приложении нет.
         </p>
       </div>
-    </div>
+    </main>
   );
 }

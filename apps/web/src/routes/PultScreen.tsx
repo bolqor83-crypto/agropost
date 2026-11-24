@@ -17,6 +17,7 @@ import { useActivityStore } from "../stores/publish";
 import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
 import type { ActivityItem } from "../api/types";
 import { Btn, Card, Chip, EmptyState, SectionTitle, Sheet, Skeleton } from "../components/ui";
+import { NumberAnimated } from "../components/NumberAnimated";
 import { PositionDetailSheet } from "../components/PositionDetailSheet";
 import { dismissTip, shouldShowWelcomeTip, tipDismissed, type RequisitesLike } from "../lib/tips";
 
@@ -58,7 +59,8 @@ function PositionCard({ p, onOpen }: { p: PositionDTO; onOpen: () => void }) {
   );
 }
 
-/** Карточка-показатель аналитики (этап 5): клик → экран «Аналитика». */
+/** Карточка-показатель аналитики (этап 5): клик → экран «Аналитика».
+ *  ЭТАП 8: значение — NumberAnimated (count-up) + вспышка при появлении. */
 function StatCard({
   icon,
   label,
@@ -68,7 +70,7 @@ function StatCard({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
   hint?: string;
   onClick: () => void;
 }) {
@@ -78,7 +80,7 @@ function StatCard({
         {icon}
         <p className="truncate text-[11px] font-semibold uppercase tracking-wide">{label}</p>
       </div>
-      <p className="mt-1.5 truncate text-[17px] font-bold text-ink">{value}</p>
+      <p className="value-flash mt-1.5 truncate rounded-[8px] text-[17px] font-bold text-ink">{value}</p>
       {hint && <p className="truncate text-[11px] font-medium text-soft">{hint}</p>}
     </Card>
   );
@@ -104,7 +106,7 @@ function AnalyticsCards({
       </div>
     );
   }
-  const margin = summary ? fmtRub(summary.margin) : "—";
+  const margin = summary ? <NumberAnimated value={summary.margin} format={fmtRub} /> : "—";
   const marginHint =
     summary && summary.dealsClosed > 0 ? `${summary.dealsClosed} закр. за неделю` : "после первых сделок";
   return (
@@ -119,14 +121,26 @@ function AnalyticsCards({
       <StatCard
         icon={<Handshake size={13} />}
         label="Активные"
-        value={activeDeals !== null ? String(activeDeals) : "—"}
+        value={
+          activeDeals !== null ? (
+            <NumberAnimated value={activeDeals} duration={400} />
+          ) : (
+            "—"
+          )
+        }
         hint="сделок в работе"
         onClick={onOpen}
       />
       <StatCard
         icon={<Inbox size={13} />}
         label="Лиды"
-        value={summary ? String(summary.newLeadsToday) : "—"}
+        value={
+          summary ? (
+            <NumberAnimated value={summary.newLeadsToday} duration={400} />
+          ) : (
+            "—"
+          )
+        }
         hint="новых сегодня"
         onClick={onOpen}
       />
@@ -176,7 +190,7 @@ function WelcomeBanner({
   onLater: () => void;
 }) {
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="fade-in-soft flex flex-col gap-3 p-4">
       <div className="flex items-start gap-3">
         <Sparkles size={18} className="mt-0.5 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
@@ -334,7 +348,7 @@ export function PultScreen() {
           {dateStr} · позиции на складе обновлены вручную, без напоминаний
         </p>
         <div className="pt-4">
-          <Btn full size="lg" onClick={() => navigate("/publish")} ariaLabel="Разместить товар">
+          <Btn full size="lg" className="btn-gradient" onClick={() => navigate("/publish")} ariaLabel="Разместить товар">
             <Send size={18} />
             Разместить товар
           </Btn>
@@ -403,7 +417,7 @@ export function PultScreen() {
           >
             Позиции
           </SectionTitle>
-          <div className="flex flex-col gap-3">
+          <div className="stagger-children flex flex-col gap-3">
             {positions.slice(0, 4).map((p) => (
               <PositionCard key={p.id} p={p} onOpen={() => setOpenId(p.id)} />
             ))}

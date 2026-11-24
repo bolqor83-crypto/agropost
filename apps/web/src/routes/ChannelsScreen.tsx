@@ -306,7 +306,7 @@ export function ChannelsScreen() {
             />
           </Card>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="stagger-children flex flex-col gap-3">
             {visible.map((c) => (
               <ChannelCard
                 key={c.id}

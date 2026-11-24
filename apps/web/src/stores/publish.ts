@@ -68,11 +68,16 @@ export const useActivityStore = create<ActivityState>((set) => ({
 
 /**
  * Тосты: тихие, короткие, без действий.
+ * ЭТАП 8: у тоста появился вид (info/success/error) и прогресс жизни
+ * (в AppShell — .toast-progress, 2.4s = таймер ниже).
  */
+
+export type ToastKind = "info" | "success" | "error";
 
 interface ToastState {
   message: string | null;
-  show: (msg: string) => void;
+  kind: ToastKind;
+  show: (msg: string, kind?: ToastKind) => void;
   hide: () => void;
 }
 
@@ -80,9 +85,10 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useToastStore = create<ToastState>((set) => ({
   message: null,
-  show: (msg) => {
+  kind: "info",
+  show: (msg, kind = "info") => {
     if (toastTimer) clearTimeout(toastTimer);
-    set({ message: msg });
+    set({ message: msg, kind });
     toastTimer = setTimeout(() => set({ message: null }), 2400);
   },
   hide: () => {

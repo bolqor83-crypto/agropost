@@ -86,7 +86,8 @@ function PositionPickCard({
   return (
     <Card
       onClick={onPick}
-      className={`flex items-center gap-3 p-4 ${selected ? "ring-2 ring-accent/40" : ""}`}
+      selected={selected}
+      className="flex items-center gap-3 p-4"
     >
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-[14px] font-semibold leading-snug text-ink">
@@ -127,9 +128,9 @@ function ChannelPickCard({
   const Icon = CHANNEL_ICON[c.type];
   const reach = c.averageReach ?? c.subscribersCount;
   return (
-    <Card onClick={onToggle} className="flex items-center gap-3 p-4">
+    <Card onClick={onToggle} selected={checked} className="flex items-center gap-3 p-4">
       <div
-        className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${
+        className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl transition-colors ${
           checked ? "bg-accent-soft text-accent" : "bg-subtle text-soft"
         }`}
       >
@@ -386,7 +387,7 @@ export function PublishScreen() {
     try {
       const updated = await api.updateListing(draft.id, { text });
       setDrafts((d) => ({ ...d, [channelId]: updated }));
-      showToast("Текст сохранён");
+      showToast("Текст сохранён", "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Не удалось сохранить текст");
     } finally {
@@ -496,6 +497,9 @@ export function PublishScreen() {
       <ScreenHeader title="Разместить" caption="Позиция, каналы, черновики — и готово" />
       <StepBar step={step} onStep={setStep} />
 
+      {/* ЭТАП 8: смена шага мастера — мягкий slide 240ms (remount по key=step).
+          Layout не меняется: секции остаются внутри того же потока. */}
+      <div key={step} className="anim-step">
       {/* -------- Шаг 1: позиция -------- */}
       {step === 1 && (
         <section className="px-5 pt-5">
@@ -669,10 +673,21 @@ export function PublishScreen() {
                         type="button"
                         onClick={() => ch && void generateAi(id, ch)}
                         disabled={!ch || ai?.status === "loading"}
-                        className="press inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white shadow-soft disabled:opacity-40"
+                        className="press btn-gradient inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
                       >
                         <Sparkles size={13} className={ai?.status === "loading" ? "animate-spin" : ""} />
-                        {ai?.status === "loading" ? "Думаю…" : "Сгенерировать с AI"}
+                        {ai?.status === "loading" ? (
+                          <>
+                            Думаю
+                            <span className="thinking-dots" aria-hidden>
+                              <i />
+                              <i />
+                              <i />
+                            </span>
+                          </>
+                        ) : (
+                          "Сгенерировать с AI"
+                        )}
                       </button>
                     </div>
 
@@ -761,6 +776,7 @@ export function PublishScreen() {
                           variant={confirm24h[id] ? "secondary" : "primary"}
                           onClick={() => void publishViaBot(id)}
                           disabled={publishing[id]}
+                          loading={publishing[id]}
                           ariaLabel="Опубликовать через бота"
                         >
                           <Zap size={15} className={publishing[id] ? "animate-pulse" : ""} />
@@ -848,6 +864,7 @@ export function PublishScreen() {
           </div>
         </section>
       )}
+      </div>
     </div>
   );
 }

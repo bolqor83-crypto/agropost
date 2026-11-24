@@ -215,7 +215,7 @@ export function PositionsScreen() {
             )}
           </Card>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="stagger-children flex flex-col gap-3">
             {items.map((p) => (
               <PositionCard key={p.id} p={p} onOpen={() => setOpenId(p.id)} />
             ))}

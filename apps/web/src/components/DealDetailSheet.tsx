@@ -27,6 +27,7 @@ import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
 import { dealStatusTone, fmtNum, fmtRub, fmtDate, fmtWhen } from "../lib/format";
 import { Btn, Card, Chip, InfoRow, Sheet } from "../components/ui";
+import { NumberAnimated } from "../components/NumberAnimated";
 import { ShipmentSheet } from "./ShipmentSheet";
 import { ClaimSheet } from "./ClaimSheet";
 
@@ -63,7 +64,9 @@ function Timeline({ status }: { status: DealDetailDTO["status"] }) {
         {DEAL_STATUS_ORDER.map((s, i) => (
           <div
             key={s}
-            className={`h-1.5 flex-1 rounded-full ${i <= currentIdx ? "bg-accent" : "bg-line"}`}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${
+              i <= currentIdx ? "bg-accent" : "bg-line"
+            } ${i === currentIdx ? "pulse-soft" : ""}`}
             title={STEP_LABEL[s]}
           />
         ))}
@@ -205,7 +208,7 @@ export function DealDetailSheet({
     try {
       await action();
       onChanged();
-      if (okMsg) showToast(okMsg);
+      if (okMsg) showToast(okMsg, "success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не получилось";
       if (msg.includes("реквизиты") || msg.includes("РЕКВИЗИТЫ") || msg.includes("REQUISITES")) {
@@ -248,7 +251,9 @@ export function DealDetailSheet({
         {deal.buyerName} · {deal.buyerRegion} · {deal.buyerPhone}
       </p>
 
-      <div className="mt-3">
+      {/* ЭТАП 8: remount по статусу — при оплате/отгрузке таймлайн
+          вспыхивает рамкой акцента и гаснет за 800ms. */}
+      <div key={deal.status} className="flash-accent mt-3">
         <Timeline status={deal.status} />
       </div>
 
@@ -266,7 +271,7 @@ export function DealDetailSheet({
         <div className="my-2 h-px bg-line" />
         <InfoRow
           label="Маржа после налога"
-          value={fmtRub(deal.margin)}
+          value={<NumberAnimated value={deal.margin} format={fmtRub} />}
           valueClass={`text-[16px] ${deal.margin > 0 ? "text-accent" : deal.margin < 0 ? "text-warm" : "text-soft"}`}
         />
         <InfoRow

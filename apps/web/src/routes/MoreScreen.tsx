@@ -87,7 +87,7 @@ function ReadinessCard({ onNavigate }: { onNavigate: (to: string) => void }) {
     if (!data) return;
     const text = buildLaunchPlan(data);
     const ok = await copyText(text);
-    showToast(ok ? "Инструкция скопирована — можно вставить в чат или заметки" : "Не удалось скопировать — попробуйте ещё раз");
+    showToast(ok ? "Инструкция скопирована — можно вставить в чат или заметки" : "Не удалось скопировать — попробуйте ещё раз", ok ? "success" : "error");
   };
 
   return (
