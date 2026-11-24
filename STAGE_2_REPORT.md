@@ -78,7 +78,18 @@
 | База | Neon, проект `agropost` (org `bolqor`), ветка main |
 | Репозиторий | https://github.com/bolqor83-crypto/agropost |
 
-Ссылки не изменились с этапа 1 (те же сервисы Render, autoDeploy включён).
+Ссылки не изменились с этапа 1 (те же сервисы Render). Проверено после деплоя:
+`/api/meta` → `ok:true, stage:2, channels:true`; `/api/channels` → 10 каналов
+(вкл. `ch-kuban-farmers`); `/api/accounts` → 2; `/api/positions` → 7
+(этап 1 не сломался); веб отдаёт 200.
+
+Задеплоено: коммит `78526d8`, Render manual (autoDeploy=yes включён, но пуш не
+подхватился — деплой запущен через Render API для `agropost-api` и
+`agropost-web`, оба live), прод-БД миграция `stage2_channels_accounts_listings`
+применена — совпадает (хост `DATABASE_URL` в Render совпадает с локальным
+`apps/server/.env`, миграция и сид применялись к этой же базе; при старте API
+также идемпотентно выполняет `prisma migrate deploy`), seed: 10 каналов /
+2 аккаунта.
 
 ## Дальше
 
