@@ -11,6 +11,7 @@ import { userRoutes } from "./routes/user.js";
 import { channelRoutes } from "./routes/channels.js";
 import { accountRoutes } from "./routes/accounts.js";
 import { listingRoutes } from "./routes/listings.js";
+import { parserRoutes } from "./routes/parser.js";
 import { registerErrorHandler } from "./errors.js";
 
 /**
@@ -45,6 +46,7 @@ await app.register(userRoutes);
 await app.register(channelRoutes);
 await app.register(accountRoutes);
 await app.register(listingRoutes);
+await app.register(parserRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

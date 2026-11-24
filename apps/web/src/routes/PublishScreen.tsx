@@ -20,8 +20,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
-import { CHANNEL_TAG_LABEL } from "@shared/channels";
-import { CHANNEL_TYPE_LABEL, LISTING_STATUS_LABEL } from "@shared/labels";
+import { CHANNEL_TAG_LABEL, submissionTarget } from "@shared/channels";
+import { CHANNEL_TYPE_LABEL, LISTING_STATUS_LABEL, SUBMISSION_METHOD_LABEL } from "@shared/labels";
 import type {
   ChannelDTO,
   ListingDTO,
@@ -496,6 +496,20 @@ export function PublishScreen() {
                     )}
                   </div>
 
+                  {/* Этап 2.5: способ подачи и лимит — подсказка под каналом */}
+                  {ch && ch.submissionMethod !== "NONE" && (
+                    <p className="mt-1 text-[12px] font-medium text-soft">
+                      Подача: {SUBMISSION_METHOD_LABEL[ch.submissionMethod]}
+                      {ch.submissionMethod === "BOT" && ch.submissionBotUsername
+                        ? ` ${ch.submissionBotUsername}`
+                        : ""}
+                      {ch.submissionMethod === "ADMIN_CONTACT" && ch.adminContact
+                        ? ` ${ch.adminContact}`
+                        : ""}
+                      {ch.frequencyLimit ? ` · лимит: ${ch.frequencyLimit}` : ""}
+                    </p>
+                  )}
+
                   <div className="mt-3 rounded-[14px] bg-subtle px-4 py-3">
                     {draft === "pending" && (
                       <p className="text-[13px] font-medium text-soft">Собираю черновик…</p>
@@ -517,15 +531,23 @@ export function PublishScreen() {
                       <Btn variant="secondary" onClick={() => void copyDraft(id)} ariaLabel="Скопировать текст">
                         <Copy size={15} />
                       </Btn>
-                      <a
-                        href={draft.channel.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="press inline-flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-[13px] font-semibold text-ink"
-                      >
-                        <ExternalLink size={14} />
-                        Открыть канал
-                      </a>
+                      {/* Этап 2.5: кнопка ведёт в правильную точку входа —
+                       * бот-приёмщик / админ / страницу подачи, а не просто в канал */}
+                      {(() => {
+                        const target = submissionTarget(draft.channel);
+                        return (
+                          <a
+                            href={target.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={target.label}
+                            className="press inline-flex h-11 max-w-[180px] items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-[13px] font-semibold text-ink"
+                          >
+                            <ExternalLink size={14} className="shrink-0" />
+                            <span className="truncate">{target.label}</span>
+                          </a>
+                        );
+                      })()}
                       {published ? (
                         <div className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-accent-soft py-2.5 text-[13px] font-semibold text-accent">
                           <CheckCircle2 size={15} />

@@ -164,6 +164,22 @@ export type AccountPlatform = "TELEGRAM" | "AVITO" | "MAX" | "YOULA" | "OTHER";
 export type AccountStatus = "ACTIVE" | "LIMITED" | "PAUSED" | "BLOCKED";
 export type ListingStatus = "DRAFT" | "COPIED" | "PUBLISHED";
 
+/* Этап 2.5: способы подачи и профиль канала (исследование рынка). */
+
+/** Как подавать объявление в канал. */
+export type SubmissionMethod =
+  | "BOT"
+  | "ADMIN_CONTACT"
+  | "SITE_FORM"
+  | "CABINET"
+  | "NONE";
+
+/** Честный статус канала: проверен / требует проверки. */
+export type ConfirmationStatus = "CONFIRMED" | "REQUIRES_CHECK";
+
+/** Профиль аудитории канала. */
+export type AudienceType = "B2B" | "B2C" | "REGIONAL" | "GENERAL";
+
 export interface ChannelDTO {
   id: string;
   name: string;
@@ -180,6 +196,21 @@ export interface ChannelDTO {
   /** Аккаунт, которым размещаем (null — вручную, без аккаунта). */
   accountId: string | null;
   notes: string | null;
+  /* Этап 2.5: способы подачи и профиль канала (исследование рынка). */
+  /** Как подавать объявление (бот / админ-контакт / форма сайта / кабинет). */
+  submissionMethod: SubmissionMethod;
+  /** Бот-приёмщик, например @Taganrog_Predlozhka_bot — для BOT. */
+  submissionBotUsername: string | null;
+  /** Контакт администратора, например @admn_013 — для ADMIN_CONTACT. */
+  adminContact: string | null;
+  /** Лимит подач, например «2 раза в день». */
+  frequencyLimit: string | null;
+  /** Честный статус канала: проверен / требует проверки. */
+  confirmationStatus: ConfirmationStatus;
+  /** Зеркало канала на другой площадке (TG↔MAX) — id канала. */
+  mirrorOf: string | null;
+  /** Профиль аудитории: агро-чат (B2B) или барахолка (REGIONAL/GENERAL). */
+  audienceType: AudienceType | null;
   listingCount: number;
   createdAt: string;
   updatedAt: string;
@@ -230,6 +261,15 @@ export interface ChannelInput {
   lastActivityAt?: string | null;
   accountId?: string | null;
   notes?: string;
+  /* Этап 2.5: способы подачи (все опциональны). */
+  submissionMethod?: SubmissionMethod;
+  submissionBotUsername?: string | null;
+  adminContact?: string | null;
+  frequencyLimit?: string | null;
+  confirmationStatus?: ConfirmationStatus;
+  /** Id канала-зеркала (TG↔MAX). */
+  mirrorOf?: string | null;
+  audienceType?: AudienceType | null;
 }
 
 export interface AccountInput {
@@ -286,4 +326,52 @@ export interface SuggestChannelsDTO {
   channels: SuggestedChannelDTO[];
   /** Гео-ротация — только если в одном регионе ≥2 городов. */
   rotation?: RotationDTO;
+}
+
+/* ---------- Этап 2.5: рынок (парсер цен конкурентов) ---------- */
+
+/** Источник собранной цены. */
+export type PriceSource = "AGROSERVER" | "TELEGRAM";
+
+/** Одна собранная цена конкурента (обезличенно, без телефонов — 152-ФЗ). */
+export interface MarketSampleDTO {
+  id: string;
+  source: PriceSource;
+  /** Цена, ₽ (за единицу unit). */
+  price: number;
+  /** Единица: «₽/кг». */
+  unit: string;
+  region: string | null;
+  /** Название продавца-компании или @username (без ФИО). */
+  sellerName: string | null;
+  link: string;
+  fetchedAt: string;
+}
+
+/** Агрегаты рынка по культуре позиции (GET /api/positions/:id/market). */
+export interface MarketDTO {
+  positionId: string;
+  /** Культура позиции («Люцерна») и запрос парсера («люцерна»). */
+  cultureName: string;
+  queries: string[];
+  /** Сколько цен в окне (MARKET_WINDOW_DAYS). */
+  count: number;
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+  /** Источники, из которых есть данные. */
+  sources: PriceSource[];
+  /** Последняя дата сбора (ISO). */
+  lastFetchedAt: string | null;
+  /** Последние 5 сэмплов. */
+  samples: MarketSampleDTO[];
+}
+
+/** Ответ POST /api/parser/run (прокси на Python-сервис парсинга). */
+export interface ParserRunDTO {
+  ok: boolean;
+  runId: string;
+  /** Пояснение, если сервис недоступен или адаптеры отключены. */
+  note?: string;
+  [key: string]: unknown;
 }

@@ -22,7 +22,9 @@ import type {
   ListingCreateInput,
   ListingDTO,
   ListingUpdateInput,
+  MarketDTO,
   MediaUploadDTO,
+  ParserRunDTO,
   PositionDTO,
   PositionInput,
   PositionStatus,
@@ -212,6 +214,20 @@ export function suggestChannels(positionId: string): Promise<SuggestChannelsDTO>
   return request<SuggestChannelsDTO>(`/positions/${positionId}/suggest-channels`, {
     method: "POST",
   });
+}
+
+/* ---------- Этап 2.5: рынок и парсер ---------- */
+
+/** Агрегаты цен конкурентов по культуре позиции (обновление раз в день). */
+export function getPositionMarket(positionId: string): Promise<MarketDTO> {
+  return request<MarketDTO>(`/positions/${positionId}/market`);
+}
+
+/** Ручной запуск парсера (для теста; cron живёт в самом сервисе). */
+export function runParser(
+  input: { queries?: string[]; sources?: string[] } = {},
+): Promise<ParserRunDTO> {
+  return request<ParserRunDTO>("/parser/run", { method: "POST", body: JSON.stringify(input) });
 }
 
 /* ---------- Аккаунты (этап 2) ---------- */

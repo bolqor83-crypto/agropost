@@ -89,3 +89,31 @@ export const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
   COPIED: "скопирован",
   PUBLISHED: "размещён",
 };
+
+/* ---------- Этап 2.5: способы подачи и профиль канала ---------- */
+
+import type {
+  AudienceType,
+  ConfirmationStatus,
+  SubmissionMethod,
+} from "./types";
+
+export const SUBMISSION_METHOD_LABEL: Record<SubmissionMethod, string> = {
+  BOT: "бот-приёмщик",
+  ADMIN_CONTACT: "админ-контакт",
+  SITE_FORM: "форма сайта",
+  CABINET: "личный кабинет",
+  NONE: "не указан",
+};
+
+export const CONFIRMATION_STATUS_LABEL: Record<ConfirmationStatus, string> = {
+  CONFIRMED: "проверен",
+  REQUIRES_CHECK: "требует проверки",
+};
+
+export const AUDIENCE_TYPE_LABEL: Record<AudienceType, string> = {
+  B2B: "агро / опт (B2B)",
+  B2C: "частные покупатели (B2C)",
+  REGIONAL: "локальная барахолка",
+  GENERAL: "общая аудитория",
+};

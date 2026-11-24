@@ -19,7 +19,8 @@ import { includeChannel, includePosition, mapChannel, mapPosition } from "../map
 import { computeSalePrice } from "@shared/pricing";
 import { normalizeAttributes } from "@shared/attributes";
 import { rankForRotation, buildRotation, withRotationInfo } from "@shared/rotation";
-import type { AttributeField } from "@shared/types";
+import { aggregateMarket, MARKET_WINDOW_DAYS, marketQueriesFor } from "@shared/market";
+import type { AttributeField, MarketDTO, MarketSampleDTO } from "@shared/types";
 
 function buildWhere(query: Record<string, unknown>): Prisma.SupplierPositionWhereInput {
   const where: Prisma.SupplierPositionWhereInput = {};
@@ -48,6 +49,15 @@ function buildWhere(query: Record<string, unknown>): Prisma.SupplierPositionWher
 function str(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   return value.trim();
+}
+
+/* Этап 2.5: рынок — кэш в памяти на 24 ч (обновление раз в день по ТЗ).
+ * Инвалидация — POST /api/parser/run (routes/parser.ts). */
+const marketCache = new Map<string, { at: number; data: MarketDTO }>();
+const MARKET_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function invalidateMarketCache(): void {
+  marketCache.clear();
 }
 
 function positionTypeFilter(value: unknown): "SEED" | "NUT" | null {
@@ -175,5 +185,61 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
       channels: withRotationInfo(ranked, published),
       ...(rotation ? { rotation } : {}),
     };
+  });
+
+  /* Этап 2.5: рынок по культуре позиции — агрегаты CompetitorPrice. */
+  app.get("/api/positions/:id/market", async (req) => {
+    const { id } = req.params as { id: string };
+    const cached = marketCache.get(id);
+    if (cached && Date.now() - cached.at < MARKET_CACHE_TTL_MS) {
+      return cached.data;
+    }
+    const position = await prisma.supplierPosition.findUnique({
+      where: { id },
+      include: { culture: true },
+    });
+    if (!position) throw notFound("Позиция не найдена");
+    const queries = marketQueriesFor(position.culture.name);
+    const since = new Date(Date.now() - MARKET_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const rows = await prisma.competitorPrice.findMany({
+      where: {
+        OR: queries.map((q) => ({ query: { equals: q, mode: "insensitive" } })),
+        fetchedAt: { gte: since },
+      },
+      orderBy: { fetchedAt: "desc" },
+    });
+    const data: MarketDTO = {
+      ...aggregateMarket(
+        id,
+        position.culture.name,
+        queries,
+        rows.map((r) => ({
+          id: r.id,
+          source: r.source,
+          price: Number(r.price),
+          unit: r.unit,
+          region: r.region,
+          sellerName: r.sellerName,
+          link: r.link,
+          fetchedAt: r.fetchedAt.toISOString(),
+        })),
+      ),
+      samples: rows.slice(0, 5).map<MarketSampleDTO>((r) => ({
+        id: r.id,
+        source: r.source,
+        price: Number(r.price),
+        unit: r.unit,
+        region: r.region,
+        sellerName: r.sellerName,
+        link: r.link,
+        fetchedAt: r.fetchedAt.toISOString(),
+      })),
+    };
+    /* Пустой результат НЕ кэшируем: до первого прогона парсера строки
+     * появятся позже, а TTL 24 ч их бы спрятал. */
+    if (data.count > 0) {
+      marketCache.set(id, { at: Date.now(), data });
+    }
+    return data;
   });
 }

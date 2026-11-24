@@ -112,6 +112,17 @@ export const accountPlatformSchema = z.enum(["TELEGRAM", "AVITO", "MAX", "YOULA"
 export const accountStatusSchema = z.enum(["ACTIVE", "LIMITED", "PAUSED", "BLOCKED"]);
 export const listingStatusSchema = z.enum(["DRAFT", "COPIED", "PUBLISHED"]);
 
+/* Этап 2.5: способы подачи и профиль канала. */
+export const submissionMethodSchema = z.enum([
+  "BOT",
+  "ADMIN_CONTACT",
+  "SITE_FORM",
+  "CABINET",
+  "NONE",
+]);
+export const confirmationStatusSchema = z.enum(["CONFIRMED", "REQUIRES_CHECK"]);
+export const audienceTypeSchema = z.enum(["B2B", "B2C", "REGIONAL", "GENERAL"]);
+
 /** Словарь тегов — единый источник в shared/channels.ts. */
 export const channelTagSchema = z.enum(CHANNEL_TAGS);
 
@@ -120,6 +131,14 @@ const optionalCount = z
   .int("Укажите целое число")
   .min(0)
   .max(50_000_000)
+  .optional()
+  .nullable();
+
+/** @username или ссылка контакта; пустая строка → null в роуте. */
+const optionalHandle = z
+  .string()
+  .trim()
+  .max(60, "Контакт — до 60 символов")
   .optional()
   .nullable();
 
@@ -150,9 +169,27 @@ export const channelCreateSchema = z.object({
     .nullable(),
   accountId: z.string().trim().min(1).optional().nullable(),
   notes: z.string().trim().max(2000).optional(),
+  /* Этап 2.5: подача и профиль. */
+  submissionMethod: submissionMethodSchema.optional(),
+  submissionBotUsername: optionalHandle,
+  adminContact: optionalHandle,
+  frequencyLimit: z.string().trim().max(60, "Лимит — до 60 символов").optional().nullable(),
+  confirmationStatus: confirmationStatusSchema.optional(),
+  mirrorOf: z.string().trim().min(1).optional().nullable(),
+  audienceType: audienceTypeSchema.optional().nullable(),
 });
 
 export const channelUpdateSchema = channelCreateSchema.partial();
+
+/** POST /api/parser/run — ручной запуск парсера (для теста). */
+export const parserRunSchema = z
+  .object({
+    /** Запросы (по умолчанию — DEFAULT_PARSER_QUERIES из shared/market.ts). */
+    queries: z.array(z.string().trim().min(1)).max(10).optional(),
+    /** Источники: только перечисленные адаптеры. */
+    sources: z.array(z.enum(["AGROSERVER", "TELEGRAM"])).optional(),
+  })
+  .strict();
 
 export const accountCreateSchema = z.object({
   platform: accountPlatformSchema,

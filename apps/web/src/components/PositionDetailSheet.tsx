@@ -4,7 +4,7 @@
  * Поставщик виден только здесь — в объявлениях его не будет (white-label).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BadgeCheck,
@@ -14,13 +14,14 @@ import {
   Pencil,
   Send,
   ShieldCheck,
+  TrendingUp,
   Truck,
   X,
 } from "lucide-react";
 import { formatAttrValue, positionName } from "@shared/attributes";
 import { POSITION_STATUS_LABEL, SHIPPING_MODE_LABEL, SUPPLIER_LOCATION_LABEL } from "@shared/labels";
 import { calcMargin } from "@shared/pricing";
-import type { PositionDTO } from "@shared/types";
+import type { MarketDTO, PositionDTO } from "@shared/types";
 import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
 import { taxRateOf, useCatalog } from "../stores/catalog";
@@ -31,6 +32,60 @@ function statusTone(status: PositionDTO["status"]): "green" | "warm" | "neutral"
   if (status === "IN_STOCK") return "green";
   if (status === "ON_ORDER") return "warm";
   return "neutral";
+}
+
+/* Этап 2.5: строка «Рынок: 180–240 ₽/кг (средняя 205)» — агрегаты цен
+ * конкурентов по культуре позиции. Данные обновляет парсер (раз в день);
+ * до его первого запуска — честное «данных пока нет». */
+function MarketRow({ positionId }: { positionId: string }) {
+  const [market, setMarket] = useState<MarketDTO | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .getPositionMarket(positionId)
+      .then((m) => {
+        if (alive) setMarket(m);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [positionId]);
+
+  if (failed) return null;
+
+  const hasData = market !== null && market.count > 0;
+  return (
+    <div className="py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-soft">
+          <TrendingUp size={13} className="text-accent" />
+          Рынок
+        </span>
+        {market === null ? (
+          <span className="text-[13px] font-medium text-soft">…</span>
+        ) : hasData ? (
+          <span className="whitespace-nowrap text-[14px] font-semibold text-ink">
+            {fmtRub(market.min!)}–{fmtRub(market.max!)} / кг
+          </span>
+        ) : (
+          <span className="text-[12px] font-medium text-soft">данных пока нет</span>
+        )}
+      </div>
+      {hasData && (
+        <p className="mt-0.5 text-right text-[11px] font-medium text-soft">
+          средняя {fmtRub(market.avg!)} · {market.count} цен ·{" "}
+          {market.sources
+            .map((s) => (s === "AGROSERVER" ? "Агросервер" : "Telegram"))
+            .join(" + ")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function updatedLabel(iso: string): string {
@@ -241,6 +296,8 @@ export function PositionDetailSheet({
           value={`${fmtRub(position.salePrice)} / кг`}
           valueClass="text-accent text-[16px]"
         />
+        {/* Этап 2.5: рынок конкурентов по этой культуре (парсер). */}
+        <MarketRow positionId={position.id} />
         <div className="my-2 h-px bg-line" />
         <VolumeRow
           position={position}

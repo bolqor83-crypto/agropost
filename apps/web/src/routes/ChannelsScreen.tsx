@@ -19,7 +19,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { CHANNEL_TAGS, CHANNEL_TAG_LABEL } from "@shared/channels";
-import { CHANNEL_TYPE_LABEL } from "@shared/labels";
+import {
+  AUDIENCE_TYPE_LABEL,
+  CHANNEL_TYPE_LABEL,
+  CONFIRMATION_STATUS_LABEL,
+  SUBMISSION_METHOD_LABEL,
+} from "@shared/labels";
 import { channelHistory, daysSince } from "@shared/rotation";
 import type { ChannelDTO, ChannelTag } from "@shared/types";
 import * as api from "../api/client";
@@ -77,6 +82,18 @@ function lastPlacementLabel(h: ChannelHistoryInfo | undefined): string {
   return `Последнее размещение: ${when}${times}`;
 }
 
+/** «Способ подачи» одной строкой: Бот @… / Админ @… / Форма сайта. */
+function submissionLabel(c: ChannelDTO): string {
+  const base = SUBMISSION_METHOD_LABEL[c.submissionMethod];
+  if (c.submissionMethod === "BOT" && c.submissionBotUsername) {
+    return `${base} ${c.submissionBotUsername}`;
+  }
+  if (c.submissionMethod === "ADMIN_CONTACT" && c.adminContact) {
+    return `${base} ${c.adminContact}`;
+  }
+  return base;
+}
+
 function ChannelCard({
   c,
   history,
@@ -106,8 +123,12 @@ function ChannelCard({
                 {CHANNEL_TAG_LABEL[t]}
               </Chip>
             ))}
+            {c.confirmationStatus === "REQUIRES_CHECK" && (
+              <Chip tone="warm">требует проверки</Chip>
+            )}
             {c.listingCount > 0 && <Chip tone="green">размещений: {c.listingCount}</Chip>}
           </div>
+          <p className="mt-1.5 text-[12px] font-medium text-soft">Подача: {submissionLabel(c)}</p>
           {history?.lastPublishedAt && (
             <p className="mt-1.5 text-[12px] font-medium text-soft">
               {lastPlacementLabel(history)}
@@ -309,6 +330,11 @@ export function ChannelsScreen() {
       {sheet?.mode === "view" && (
         <Sheet title="Канал" onClose={() => setSheet(null)}>
           <p className="text-[18px] font-semibold leading-snug text-ink">{sheet.channel.name}</p>
+          {sheet.channel.confirmationStatus === "REQUIRES_CHECK" && (
+            <div className="mt-2">
+              <Chip tone="warm">⚠ {CONFIRMATION_STATUS_LABEL[sheet.channel.confirmationStatus]}</Chip>
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap gap-2">
             <a
               href={sheet.channel.url}
@@ -351,6 +377,37 @@ export function ChannelsScreen() {
                 sheet.channel.subscribersCount != null ? fmtNum(sheet.channel.subscribersCount) : "—"
               }
               valueClass={sheet.channel.subscribersCount != null ? "text-ink" : "text-soft"}
+            />
+            {/* Этап 2.5: подача и профиль канала (исследование рынка). */}
+            <InfoRow label="Способ подачи" value={submissionLabel(sheet.channel)} />
+            <InfoRow
+              label="Лимит подач"
+              value={sheet.channel.frequencyLimit ?? "—"}
+              valueClass={sheet.channel.frequencyLimit ? "text-ink" : "text-soft"}
+            />
+            <InfoRow
+              label="Статус проверки"
+              value={CONFIRMATION_STATUS_LABEL[sheet.channel.confirmationStatus]}
+              valueClass={
+                sheet.channel.confirmationStatus === "REQUIRES_CHECK" ? "text-warm" : "text-ink"
+              }
+            />
+            <InfoRow
+              label="Аудитория"
+              value={
+                sheet.channel.audienceType ? AUDIENCE_TYPE_LABEL[sheet.channel.audienceType] : "—"
+              }
+              valueClass={sheet.channel.audienceType ? "text-ink" : "text-soft"}
+            />
+            <InfoRow
+              label="Зеркало"
+              value={
+                sheet.channel.mirrorOf
+                  ? channels.find((m) => m.id === sheet.channel.mirrorOf)?.name ??
+                    `канал ${sheet.channel.mirrorOf}`
+                  : "—"
+              }
+              valueClass={sheet.channel.mirrorOf ? "text-ink" : "text-soft"}
             />
             <InfoRow
               label="Размещений"

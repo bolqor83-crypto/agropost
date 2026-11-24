@@ -81,6 +81,35 @@ enum ListingStatus {
   PUBLISHED
 }
 
+/* Этап 2.5: способы подачи и профиль канала (исследование рынка). */
+
+enum SubmissionMethod {
+  BOT
+  ADMIN_CONTACT
+  SITE_FORM
+  CABINET
+  NONE
+}
+
+enum ConfirmationStatus {
+  CONFIRMED
+  REQUIRES_CHECK
+}
+
+enum AudienceType {
+  B2B
+  B2C
+  REGIONAL
+  GENERAL
+}
+
+/* Этап 2.5 (парсер): источник собранной цены. */
+
+enum PriceSource {
+  AGROSERVER
+  TELEGRAM
+}
+
 model Supplier {
   id           String             @id @default(cuid())
   name         String
@@ -214,9 +243,28 @@ model Channel {
   accountId        String?
   account          Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
   notes            String?
+  /* Этап 2.5: подача и профиль (docs/CHANNEL_RESEARCH.md). */
+  /// Как подавать объявление в канал.
+  submissionMethod    SubmissionMethod  @default(NONE)
+  /// Бот-приёмщик, например @Taganrog_Predlozhka_bot.
+  submissionBotUsername String?
+  /// Контакт администратора, например @admn_013.
+  adminContact       String?
+  /// Лимит подач, например «2 раза в день».
+  frequencyLimit     String?
+  /// Честный статус канала: проверен / требует проверки.
+  confirmationStatus ConfirmationStatus @default(CONFIRMED)
+  /// Зеркало канала на другой площадке (TG↔MAX) — id канала-зеркала.
+  mirrorOf           String?
+  /// Профиль аудитории: агро-чат (B2B) или барахолка (REGIONAL).
+  audienceType       AudienceType?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   listings         Listing[]
+  /// Этот канал — зеркало mirrorOf-канала (обратная сторона self-FK).
+  mirroredBy       Channel[]   @relation("ChannelMirror")
+  /// Канал, зеркалом которого является этот (self-FK, TG↔MAX).
+  mirror           Channel?    @relation("ChannelMirror", fields: [mirrorOf], references: [id], onDelete: SetNull)
 
   @@index([type])
   @@index([region])
@@ -240,4 +288,33 @@ model Listing {
   @@index([positionId])
   @@index([channelId])
   @@index([status])
+}
+
+/* ---------- Этап 2.5: цены конкурентов (парсер) ---------- */
+
+/// Обезличенные цены с досок объявлений и Telegram-каналов (152-ФЗ:
+/// только цены/названия/ссылки, без телефонов, ФИО и адресов).
+model CompetitorPrice {
+  id         String      @id @default(cuid())
+  source     PriceSource
+  /// Поисковый запрос парсера («люцерна», «грецкий орех»), lowercase.
+  query      String
+  price      Decimal     @db.Decimal(10, 2)
+  /// Единица: «₽/кг».
+  unit       String
+  region     String?
+  /// Название компании-продавца или @username (обезличенно).
+  sellerName String?
+  /// Ссылка на объявление/сообщение.
+  link       String
+  /// Краткий фрагмент объявления (контакты вычищены).
+  rawSnippet String
+  /// Когда парсер собрал строку.
+  fetchedAt  DateTime
+  createdAt  DateTime    @default(now())
+
+  @@index([source])
+  @@index([query])
+  @@index([fetchedAt])
+  @@index([source, query, fetchedAt])
 }

@@ -17,6 +17,8 @@ import "dotenv/config";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../src/prisma.js";
 import {
+  OBSOLETE_ROTATION_LISTING_IDS,
+  OBSOLETE_SEED_CHANNEL_IDS,
   SEED_ACCOUNTS,
   SEED_CHANNELS,
   SEED_CULTURES,
@@ -99,16 +101,35 @@ async function main(): Promise<void> {
   }
   console.log(`  аккаунты: ${SEED_ACCOUNTS.length}`);
 
-  /* Каналы (этап 2 + 2.1: city для гео-ротации) — upsert по id */
+  /* Каналы (этап 2.5: реальные из исследования + подача/профиль) — upsert по id.
+   * mirrorOf проставляем вторым проходом (self-FK: зеркальный канал уже создан). */
   for (const channel of SEED_CHANNELS) {
-    const { id, activityDaysAgo, ...fields } = channel;
+    const { id, activityDaysAgo, mirrorOf, ...fields } = channel;
     const data = {
       ...fields,
       lastActivityAt: activityDaysAgo !== null ? daysAgo(activityDaysAgo) : null,
     };
     await prisma.channel.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
-  console.log(`  каналы: ${SEED_CHANNELS.length}`);
+  for (const channel of SEED_CHANNELS) {
+    if (!channel.mirrorOf) continue;
+    await prisma.channel.update({
+      where: { id: channel.id },
+      data: { mirrorOf: channel.mirrorOf },
+    });
+  }
+  console.log(`  каналы: ${SEED_CHANNELS.length} (реальные, из исследования)`);
+
+  /* Этап 2.5: демо-каналы этапов 2/2.1 заменены — убираем их из базы
+   * (только фиксированные демо-идентификаторы; пользовательские не трогаем).
+   * Размещения при этом каскадно удаляются — история ротации пересеивается ниже. */
+  for (const id of OBSOLETE_SEED_CHANNEL_IDS) {
+    const removed = await prisma.channel.deleteMany({ where: { id } });
+    if (removed.count > 0) console.log(`  удалён демо-канал ${id}`);
+  }
+  await prisma.listing.deleteMany({
+    where: { id: { in: OBSOLETE_ROTATION_LISTING_IDS } },
+  });
 
   /* Позиции — только в пустую базу */
   const positionCount = await prisma.supplierPosition.count();
@@ -118,10 +139,10 @@ async function main(): Promise<void> {
     await seedPositions();
   }
 
-  /* Этап 2.1: демо-история ротации — upsert по id (Ростов-Агро и
-   * Новочеркасск «размещали» 2 дня назад → cooldown; Таганрог и Шахты
-   * свежие → первый recommendedCity = Таганрог). Позицию подставляем
-   * первую доступную — реальные размещения пользователя не трогаем. */
+  /* Этап 2.1→2.5: демо-история ротации — upsert по id (Новочеркасск
+   * «размещали» 2 дня назад → cooldown; Таганрог — никогда →
+   * recommendedCity = Таганрог). Позицию подставляем первую доступную —
+   * реальные размещения пользователя не трогаем. */
   const demoPosition = await prisma.supplierPosition.findFirst({
     orderBy: { updatedAt: "asc" },
   });

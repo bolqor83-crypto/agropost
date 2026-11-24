@@ -1,4 +1,4 @@
-# АгроПост — сервис парсинга (этап 2.5). Версии уточняются при реализации.
+# АгроПост — сервис парсинга (этап 2.5). Версии — как в основном pip install.
 fastapi>=0.115
 uvicorn>=0.34
 telethon>=1.38
@@ -6,3 +6,7 @@ httpx>=0.28
 selectolax>=0.3
 python-dotenv>=1.0
 asyncpg>=0.30
+apscheduler>=3.11
+# Тесты
+pytest>=8.3
+pytest-asyncio>=0.25

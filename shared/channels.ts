@@ -57,3 +57,63 @@ export function rankChannels(
     })
     .slice(0, limit);
 }
+
+/* ---------- Этап 2.5: точка входа для подачи объявления ---------- */
+
+/** Куда ведёт кнопка «Открыть канал» в мастере размещения. */
+export interface SubmissionTarget {
+  url: string;
+  /** Подпись кнопки («Открыть @Taganrog_Predlozhka_bot»…). */
+  label: string;
+}
+
+/** @username без собаки и со собакой — для подписи и deep link. */
+function tgLink(username: string): string {
+  return `https://t.me/${username.replace(/^@/, "").trim()}`;
+}
+
+/**
+ * Точка входа подачи по способу из Channel.submissionMethod:
+ * - BOT → «Открыть @Taganrog_Predlozhka_bot» (t.me deep link);
+ * - ADMIN_CONTACT → «Написать @admn_013» (t.me deep link);
+ * - SITE_FORM/CABINET → «Открыть страницу подачи» (Channel.url);
+ * - NONE/пустые поля → «Открыть канал» (Channel.url).
+ * Deep link t.me строим только для Telegram-каналов: у MAX-ботов
+ * свой формат ссылок, там открываем сам канал (url).
+ */
+export function submissionTarget(channel: ChannelDTO): SubmissionTarget {
+  const isTelegram =
+    channel.type === "TELEGRAM_CHAT" || channel.type === "TELEGRAM_CHANNEL";
+  if (
+    channel.submissionMethod === "BOT" &&
+    channel.submissionBotUsername?.trim()
+  ) {
+    return isTelegram
+      ? {
+          url: tgLink(channel.submissionBotUsername),
+          label: `Открыть ${channel.submissionBotUsername.trim()}`,
+        }
+      : {
+          url: channel.url,
+          label: `Подача через ${channel.submissionBotUsername.trim()}`,
+        };
+  }
+  if (
+    channel.submissionMethod === "ADMIN_CONTACT" &&
+    channel.adminContact?.trim()
+  ) {
+    return isTelegram
+      ? {
+          url: tgLink(channel.adminContact),
+          label: `Написать ${channel.adminContact.trim()}`,
+        }
+      : {
+          url: channel.url,
+          label: `Написать ${channel.adminContact.trim()}`,
+        };
+  }
+  if (channel.submissionMethod === "SITE_FORM" || channel.submissionMethod === "CABINET") {
+    return { url: channel.url, label: "Открыть страницу подачи" };
+  }
+  return { url: channel.url, label: "Открыть канал" };
+}

@@ -6,8 +6,21 @@
 
 import { useState } from "react";
 import { CHANNEL_TAGS, CHANNEL_TAG_LABEL } from "@shared/channels";
-import { CHANNEL_TYPE_LABEL } from "@shared/labels";
-import type { ChannelDTO, ChannelInput, ChannelTag, ChannelType } from "@shared/types";
+import {
+  AUDIENCE_TYPE_LABEL,
+  CHANNEL_TYPE_LABEL,
+  CONFIRMATION_STATUS_LABEL,
+  SUBMISSION_METHOD_LABEL,
+} from "@shared/labels";
+import type {
+  AudienceType,
+  ChannelDTO,
+  ChannelInput,
+  ChannelTag,
+  ChannelType,
+  ConfirmationStatus,
+  SubmissionMethod,
+} from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
 import { Btn, Field, Select, Sheet, TextArea, TextInput } from "./ui";
@@ -22,6 +35,17 @@ const TYPES: ChannelType[] = [
   "YOULA",
   "OTHER",
 ];
+
+/* Этап 2.5: способ подачи и профиль (значения — union-типы). */
+const SUBMISSION_METHODS: SubmissionMethod[] = [
+  "ADMIN_CONTACT",
+  "BOT",
+  "SITE_FORM",
+  "CABINET",
+  "NONE",
+];
+const CONFIRMATION_STATUSES: ConfirmationStatus[] = ["CONFIRMED", "REQUIRES_CHECK"];
+const AUDIENCE_TYPES: AudienceType[] = ["B2B", "REGIONAL", "GENERAL", "B2C"];
 
 /** Пустая строка → undefined (поле не отправляется на сервер). */
 function toNum(s: string): number | undefined {
@@ -52,6 +76,21 @@ export function ChannelSheet({
   );
   const [reach, setReach] = useState(channel?.averageReach != null ? String(channel.averageReach) : "");
   const [notes, setNotes] = useState(channel?.notes ?? "");
+  /* Этап 2.5: подача и профиль. */
+  const [submissionMethod, setSubmissionMethod] = useState<SubmissionMethod>(
+    channel?.submissionMethod ?? "NONE",
+  );
+  const [submissionBotUsername, setSubmissionBotUsername] = useState(
+    channel?.submissionBotUsername ?? "",
+  );
+  const [adminContact, setAdminContact] = useState(channel?.adminContact ?? "");
+  const [frequencyLimit, setFrequencyLimit] = useState(channel?.frequencyLimit ?? "");
+  const [confirmationStatus, setConfirmationStatus] = useState<ConfirmationStatus>(
+    channel?.confirmationStatus ?? "CONFIRMED",
+  );
+  const [audienceType, setAudienceType] = useState<AudienceType | "NONE">(
+    channel?.audienceType ?? "NONE",
+  );
   const [saving, setSaving] = useState(false);
 
   const toggleTag = (tag: ChannelTag) => {
@@ -76,6 +115,13 @@ export function ChannelSheet({
       ...(subscribersCount !== undefined ? { subscribersCount } : {}),
       ...(averageReach !== undefined ? { averageReach } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      /* Этап 2.5: подача и профиль. */
+      submissionMethod,
+      ...(submissionBotUsername.trim() ? { submissionBotUsername: submissionBotUsername.trim() } : { submissionBotUsername: null }),
+      ...(adminContact.trim() ? { adminContact: adminContact.trim() } : { adminContact: null }),
+      ...(frequencyLimit.trim() ? { frequencyLimit: frequencyLimit.trim() } : { frequencyLimit: null }),
+      confirmationStatus,
+      ...(audienceType !== "NONE" ? { audienceType } : { audienceType: null }),
     };
     try {
       if (channel) {
@@ -188,6 +234,71 @@ export function ChannelSheet({
             placeholder="например, 1200"
             inputMode="numeric"
             maxLength={9}
+          />
+        </Field>
+
+        {/* Этап 2.5: способ подачи — открываем нужную точку входа в мастере */}
+        <Field label="Способ подачи" hint="как подавать объявление">
+          <Select
+            value={submissionMethod}
+            onChange={(v) => setSubmissionMethod(v as SubmissionMethod)}
+            options={SUBMISSION_METHODS.map((m) => ({ value: m, label: SUBMISSION_METHOD_LABEL[m] }))}
+            ariaLabel="Способ подачи"
+          />
+        </Field>
+
+        {submissionMethod === "BOT" && (
+          <Field label="Бот-приёмщик" hint="например, @Taganrog_Predlozhka_bot">
+            <TextInput
+              value={submissionBotUsername}
+              onChange={(e) => setSubmissionBotUsername(e.target.value)}
+              placeholder="@Taganrog_Predlozhka_bot"
+              maxLength={60}
+            />
+          </Field>
+        )}
+
+        {submissionMethod === "ADMIN_CONTACT" && (
+          <Field label="Контакт админа" hint="например, @admn_013">
+            <TextInput
+              value={adminContact}
+              onChange={(e) => setAdminContact(e.target.value)}
+              placeholder="@admn_013"
+              maxLength={60}
+            />
+          </Field>
+        )}
+
+        <Field label="Лимит подач" hint="необязательно; например: 2 раза в день">
+          <TextInput
+            value={frequencyLimit}
+            onChange={(e) => setFrequencyLimit(e.target.value)}
+            placeholder="2 раза в день"
+            maxLength={60}
+          />
+        </Field>
+
+        <Field label="Статус проверки" hint="проверен ли канал для подачи">
+          <Select
+            value={confirmationStatus}
+            onChange={(v) => setConfirmationStatus(v as ConfirmationStatus)}
+            options={CONFIRMATION_STATUSES.map((s) => ({
+              value: s,
+              label: CONFIRMATION_STATUS_LABEL[s],
+            }))}
+            ariaLabel="Статус проверки"
+          />
+        </Field>
+
+        <Field label="Аудитория" hint="профиль канала — для подбора">
+          <Select
+            value={audienceType}
+            onChange={(v) => setAudienceType(v as AudienceType | "NONE")}
+            options={[
+              { value: "NONE", label: "не указана" },
+              ...AUDIENCE_TYPES.map((a) => ({ value: a, label: AUDIENCE_TYPE_LABEL[a] })),
+            ]}
+            ariaLabel="Аудитория канала"
           />
         </Field>
 
