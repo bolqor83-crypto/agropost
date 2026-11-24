@@ -1,7 +1,7 @@
 /**
  * Ещё — карта разделов по этапам дорожной карты.
  * Этап 1 открыл «Поставщиков» и «Позиции и остатки»;
- * остальное появится по мере готовности.
+ * этап 2 открыл «Каналы» и «Аккаунты» — остальное по мере готовности.
  */
 
 import {
@@ -13,6 +13,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Smartphone,
   Sprout,
   TrendingUp,
   Users,
@@ -30,7 +31,8 @@ const SECTIONS: {
 }[] = [
   { icon: Users, name: "Поставщики", stage: "этап 1", hint: "Справочник, режимы отгрузки, заметки", to: "/suppliers" },
   { icon: Package, name: "Позиции и остатки", stage: "этап 1", hint: "Шаблоны культур, атрибуты, медиа", to: "/positions" },
-  { icon: Megaphone, name: "Каналы", stage: "этап 2", hint: "Каталог с тегами, охватом, мультиаккаунты" },
+  { icon: Megaphone, name: "Каналы", stage: "этап 2", hint: "Каталог с тегами, охватом, подбор", to: "/channels" },
+  { icon: Smartphone, name: "Аккаунты", stage: "этап 2", hint: "Мультиаккаунты и лимиты размещений", to: "/accounts" },
   { icon: TrendingUp, name: "Цены рынка", stage: "этап 2.5", hint: "Агросервер и Telegram, обезличенно" },
   { icon: Send, name: "ИИ-генератор и бот", stage: "этап 3", hint: "Тексты под площадку, white-label" },
   { icon: FileText, name: "Документы и логистика", stage: "этап 4", hint: "Счёт, договор, ТН, УПД, доставка" },
@@ -93,7 +95,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · этап 1 из 6 · Warm Utility
+            АгроПост · этап 2 из 6 · Warm Utility
           </p>
         </div>
       </section>

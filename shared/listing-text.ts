@@ -1,14 +1,14 @@
 /**
- * Сборка черновика объявления из позиции (PositionDTO, этап 1).
- * Этап 3: /api/ai/listing (OpenRouter) с тем же контрактом
- * и теми же white-label правилами.
+ * Сборка черновика объявления из позиции (PositionDTO).
+ * Используется и вебом (превью текста), и сервером (POST /api/listings).
+ * Этап 3: /api/ai/listing (OpenRouter) с тем же контрактом.
  *
  * WHITE-LABEL: имя поставщика не упоминается никогда.
  * Упоминается только регион отгрузки — он нужен покупателю для логистики.
  */
 
-import { positionName } from "@shared/attributes";
-import type { CultureTemplateDTO, PositionDTO } from "@shared/types";
+import { positionName } from "./attributes";
+import type { ChannelType, CultureTemplateDTO, PositionDTO } from "./types";
 
 export type ListingPlatform = "avito" | "telegram" | "agroserver";
 
@@ -17,6 +17,13 @@ export const LISTING_PLATFORMS: { id: ListingPlatform; label: string }[] = [
   { id: "telegram", label: "Telegram" },
   { id: "agroserver", label: "Агросервер" },
 ];
+
+/** Шаблон текста по типу канала: TG — живой, Авито — сухой, остальное — деловой. */
+export function listingPlatformForChannel(type: ChannelType): ListingPlatform {
+  if (type === "TELEGRAM_CHAT" || type === "TELEGRAM_CHANNEL") return "telegram";
+  if (type === "AVITO") return "avito";
+  return "agroserver";
+}
 
 function attrLines(p: PositionDTO, culture: CultureTemplateDTO, skip: string[] = []): string[] {
   return culture.attributesSchema
@@ -77,7 +84,7 @@ export function buildListing(
     ].join("\n");
   }
 
-  // agroserver: профессионально
+  // agroserver (и MAX/Юла/другие): профессионально
   return [
     `Реализуем: ${name}${year ? `, урожай ${year}` : ""}.`,
     attrs.map((a) => a.replace(" — ", ": ")).join(", ") + ".",

@@ -1,17 +1,19 @@
 import { create } from "zustand";
-import type { ActivityItem, ChannelType } from "../api/types";
+import type { ChannelType } from "@shared/types";
 import { INITIAL_ACTIVITY } from "../features/deals/deals.mock";
+import type { ActivityItem } from "../api/types";
 
 /**
- * Поток «Разместить»: выбранная позиция, шаг, выбранные каналы.
- * Этап 3 добавит статус публикации (черновик → размещено) и вызовы API.
+ * Поток «Разместить» (этап 2): позиция → каналы (умный подбор) →
+ * черновики текста → сводка. Черновики и статусы живут в API
+ * (Listing), здесь — только навигационное состояние.
  */
 
 interface PublishState {
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   positionId: string | null;
   channelIds: string[];
-  setStep: (step: 1 | 2 | 3) => void;
+  setStep: (step: 1 | 2 | 3 | 4) => void;
   choosePosition: (id: string) => void;
   toggleChannel: (id: string) => void;
   reset: () => void;
@@ -41,8 +43,9 @@ interface ActivityState {
   addItems: (
     rows: {
       positionName: string;
-      channelName: string;
-      channelType: ChannelType;
+      channelName: string | null;
+      channelType: ChannelType | null;
+      channelsCount?: number;
       mode: "auto" | "semi";
     }[],
   ) => void;

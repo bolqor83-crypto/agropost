@@ -1,11 +1,12 @@
 /**
- * Демо-данные этапа 1 (из брифа).
+ * Демо-данные этапов 1–2 (из брифа).
  *
  * Правила обновления (не ломаем существующее):
  * - пользователь — один, обновляется;
  * - шаблоны культур — upsert по уникальному имени (позиции не трогаем:
  *   значения живут в плоском JSONB у позиций, подписи — в шаблоне);
  * - поставщики — upsert по id;
+ * - аккаунты и каналы — upsert по id;
  * - позиции — создаются ТОЛЬКО если таблица пуста (не перезаписываем
  *   работу пользователя повторными сидами).
  *
@@ -16,6 +17,8 @@ import "dotenv/config";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../src/prisma.js";
 import {
+  SEED_ACCOUNTS,
+  SEED_CHANNELS,
   SEED_CULTURES,
   SEED_POSITIONS,
   SEED_SUPPLIERS,
@@ -83,6 +86,28 @@ async function main(): Promise<void> {
     });
   }
   console.log(`  поставщики: ${SEED_SUPPLIERS.length}`);
+
+  /* Аккаунты (этап 2) — upsert по id; счётчики не трогаем */
+  for (const account of SEED_ACCOUNTS) {
+    const { id, ...fields } = account;
+    await prisma.account.upsert({
+      where: { id },
+      create: { id, ...fields },
+      update: fields,
+    });
+  }
+  console.log(`  аккаунты: ${SEED_ACCOUNTS.length}`);
+
+  /* Каналы (этап 2) — upsert по id */
+  for (const channel of SEED_CHANNELS) {
+    const { id, activityDaysAgo, ...fields } = channel;
+    const data = {
+      ...fields,
+      lastActivityAt: activityDaysAgo !== null ? daysAgo(activityDaysAgo) : null,
+    };
+    await prisma.channel.upsert({ where: { id }, create: { id, ...data }, update: data });
+  }
+  console.log(`  каналы: ${SEED_CHANNELS.length}`);
 
   /* Позиции — только в пустую базу */
   const positionCount = await prisma.supplierPosition.count();

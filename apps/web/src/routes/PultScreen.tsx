@@ -11,7 +11,7 @@ import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
 import { useCatalog } from "../stores/catalog";
 import { useActivityStore } from "../stores/publish";
-import { fmtNum, fmtRub } from "../lib/format";
+import { fmtNum, fmtRub, CHANNEL_TYPE_LABEL } from "../lib/format";
 import type { ActivityItem } from "../api/types";
 import { Btn, Card, Chip, SectionTitle, Skeleton } from "../components/ui";
 import { PositionDetailSheet } from "../components/PositionDetailSheet";
@@ -54,7 +54,18 @@ function PositionCard({ p, onOpen }: { p: PositionDTO; onOpen: () => void }) {
   );
 }
 
+function channelsWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "канал";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "канала";
+  return "каналов";
+}
+
 function ActivityRow({ a }: { a: ActivityItem }) {
+  const title = a.channelsCount
+    ? `${a.positionName} — размещено в ${a.channelsCount} ${channelsWord(a.channelsCount)}`
+    : `${a.positionName} → ${a.channelName}`;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div
@@ -65,11 +76,9 @@ function ActivityRow({ a }: { a: ActivityItem }) {
         {a.mode === "auto" ? <Send size={15} /> : <Wheat size={15} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-ink">
-          {a.positionName} → {a.channelName}
-        </p>
+        <p className="truncate text-[14px] font-semibold text-ink">{title}</p>
         <p className="text-[12px] font-medium text-soft">
-          {a.channelType === "telegram" ? "Telegram" : a.channelName} · {a.when} ·{" "}
+          {a.channelType ? CHANNEL_TYPE_LABEL[a.channelType] : "размещение"} · {a.when} ·{" "}
           {a.mode === "auto" ? "авто через бота" : "полуавтомат"}
         </p>
       </div>

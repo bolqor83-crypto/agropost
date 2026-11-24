@@ -8,7 +8,11 @@
  */
 
 import type {
+  AccountPlatform,
+  AccountStatus,
   AttributeField,
+  ChannelTag,
+  ChannelType,
   CultureType,
   PositionStatus,
   ShippingMode,
@@ -295,6 +299,186 @@ export const SEED_POSITIONS: SeedPosition[] = [
     photoCount: 5,
     certificates: [],
     updatedDaysAgo: 4,
+  },
+];
+
+/* ---------- Этап 2: аккаунты ---------- */
+
+export interface SeedAccount {
+  id: string;
+  platform: AccountPlatform;
+  phone: string;
+  status: AccountStatus;
+  dailyLimit: number;
+  notes?: string;
+}
+
+export const SEED_ACCOUNTS: SeedAccount[] = [
+  {
+    id: "acc-tg-main",
+    platform: "TELEGRAM",
+    phone: "+7 900 000-00-11",
+    status: "ACTIVE",
+    dailyLimit: 20,
+    notes: "Основной аккаунт Telegram. Автопостинг (этап 3) — только через него.",
+  },
+  {
+    id: "acc-tg-backup",
+    platform: "TELEGRAM",
+    phone: "+7 900 000-00-12",
+    status: "ACTIVE",
+    dailyLimit: 15,
+    notes: "Резервный: подключаю, когда основной упирается в лимит.",
+  },
+];
+
+/* ---------- Этап 2: каналы ---------- */
+
+export interface SeedChannel {
+  id: string;
+  name: string;
+  type: ChannelType;
+  /** Deep link: t.me/…, URL подачи объявления, URL чата. Заглушки — замените. */
+  url: string;
+  region: string;
+  tags: ChannelTag[];
+  subscribersCount: number | null;
+  averageReach: number | null;
+  /** Сколько дней назад была активность (для демо; null — не заполнено). */
+  activityDaysAgo: number | null;
+  accountId: string | null;
+  notes?: string;
+}
+
+export const SEED_CHANNELS: SeedChannel[] = [
+  {
+    id: "ch-kuban-farmers",
+    name: "Фермеры Кубани",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/farmers_kubani",
+    region: "ЮФО",
+    tags: ["SEEDS", "LIVESTOCK"],
+    subscribersCount: 2800,
+    averageReach: 3000,
+    activityDaysAgo: 0,
+    accountId: "acc-tg-main",
+    notes: "Активный чат, объявления по семенам дают быстрый отклик.",
+  },
+  {
+    id: "ch-dinskaya",
+    name: "Барахолка Динского района",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/baraholka_dinsk",
+    region: "Краснодарский край",
+    tags: ["GENERAL"],
+    subscribersCount: 1100,
+    averageReach: 1200,
+    activityDaysAgo: 1,
+    accountId: "acc-tg-main",
+    notes: "Рядом с Павловской и Ленинградской — для локальных продаж.",
+  },
+  {
+    id: "ch-fodder-yufo",
+    name: "Кормовые травы ЮФО",
+    type: "TELEGRAM_CHANNEL",
+    url: "https://t.me/fodder_yufo",
+    region: "ЮФО",
+    tags: ["SEEDS"],
+    subscribersCount: 5000,
+    averageReach: 4500,
+    activityDaysAgo: 2,
+    accountId: "acc-tg-backup",
+    notes: "Тематический канал: люцерна, эспарцет, суданка заходят хорошо.",
+  },
+  {
+    id: "ch-copany-market",
+    name: "Copany Market — орехи",
+    type: "TELEGRAM_CHAT",
+    url: "https://t.me/copany_market",
+    region: "Федеральный",
+    tags: ["NUT", "WHOLESALE"],
+    subscribersCount: 7500,
+    averageReach: 8000,
+    activityDaysAgo: 0,
+    accountId: "acc-tg-main",
+  },
+  {
+    id: "ch-fruvesh-opt",
+    name: "Фрукты Овощи Оптом",
+    type: "TELEGRAM_CHANNEL",
+    url: "https://t.me/fruvesh_opt",
+    region: "Федеральный",
+    tags: ["NUT", "WHOLESALE"],
+    subscribersCount: 12000,
+    averageReach: 12000,
+    activityDaysAgo: 3,
+    accountId: "acc-tg-backup",
+    notes: "Большой охват, но и конкурентов много — текст должен выделяться.",
+  },
+  {
+    id: "ch-nut-rf",
+    name: "Орех оптом РФ",
+    type: "TELEGRAM_CHANNEL",
+    url: "https://t.me/nut_opt_rf",
+    region: "Федеральный",
+    tags: ["NUT"],
+    subscribersCount: 18000,
+    averageReach: 9000,
+    activityDaysAgo: 5,
+    accountId: null,
+    notes: "Проверить актуальность: охват мог просесть.",
+  },
+  {
+    id: "ch-agroserver-nut",
+    name: "Агросервер — орехи",
+    type: "AGROSERVER",
+    url: "https://agroserver.ru/board/oreh",
+    region: "Федеральный",
+    tags: ["NUT"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: null,
+    accountId: null,
+    notes: "Раздел доски объявлений: подача вручную, текст — деловой шаблон.",
+  },
+  {
+    id: "ch-avito-seeds",
+    name: "Авито — семена трав",
+    type: "AVITO",
+    url: "https://www.avito.ru/krasnodarskiy_kray/semena/travy",
+    region: "Краснодарский край",
+    tags: ["SEEDS"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: null,
+    accountId: null,
+    notes: "Категория Краснодарского края; доставка Авито — по правилам площадки.",
+  },
+  {
+    id: "ch-max-agro",
+    name: "MAX — агро-сообщество",
+    type: "MAX",
+    url: "https://max.ru/u/agro_kuban",
+    region: "ЮФО",
+    tags: ["SEEDS", "LIVESTOCK"],
+    subscribersCount: 5000,
+    averageReach: 2000,
+    activityDaysAgo: 1,
+    accountId: null,
+    notes: "Растущая площадка, пока мало конкурентов.",
+  },
+  {
+    id: "ch-youla-agro",
+    name: "Юла — с/х товары",
+    type: "YOULA",
+    url: "https://youla.ru/krasnodar",
+    region: "Краснодарский край",
+    tags: ["SEEDS", "NUT"],
+    subscribersCount: null,
+    averageReach: null,
+    activityDaysAgo: null,
+    accountId: null,
+    notes: "Локальная аудитория, годится для распродажи остатков.",
   },
 ];
 

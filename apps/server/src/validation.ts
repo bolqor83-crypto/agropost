@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHANNEL_TAGS } from "@shared/channels";
 
 /**
  * Zod-схемы входных данных. Ошибки валидации превращаются
@@ -93,6 +94,83 @@ export const mediaCreateSchema = z.object({
     "video/quicktime",
   ]),
   watermark: z.boolean().optional(),
+});
+
+/* ---------- Этап 2: каналы, аккаунты, размещения ---------- */
+
+export const channelTypeSchema = z.enum([
+  "TELEGRAM_CHAT",
+  "TELEGRAM_CHANNEL",
+  "AVITO",
+  "AGROSERVER",
+  "MAX",
+  "YOULA",
+  "OTHER",
+]);
+
+export const accountPlatformSchema = z.enum(["TELEGRAM", "AVITO", "MAX", "YOULA", "OTHER"]);
+export const accountStatusSchema = z.enum(["ACTIVE", "LIMITED", "PAUSED", "BLOCKED"]);
+export const listingStatusSchema = z.enum(["DRAFT", "COPIED", "PUBLISHED"]);
+
+/** Словарь тегов — единый источник в shared/channels.ts. */
+export const channelTagSchema = z.enum(CHANNEL_TAGS);
+
+const optionalCount = z
+  .number()
+  .int("Укажите целое число")
+  .min(0)
+  .max(50_000_000)
+  .optional()
+  .nullable();
+
+export const channelCreateSchema = z.object({
+  name: z.string().trim().min(1, "Укажите название канала").max(120),
+  type: channelTypeSchema,
+  url: z
+    .string()
+    .trim()
+    .url("Укажите ссылку (https://…)")
+    .max(500)
+    .refine((v) => v.startsWith("http://") || v.startsWith("https://"), {
+      message: "Ссылка должна начинаться с http(s)://",
+    }),
+  region: z.string().trim().min(1, "Укажите регион").max(60),
+  tags: z
+    .array(channelTagSchema)
+    .min(1, "Выберите хотя бы один тег")
+    .max(5, "Не больше пяти тегов"),
+  subscribersCount: optionalCount,
+  averageReach: optionalCount,
+  lastActivityAt: z
+    .string()
+    .datetime({ offset: true, message: "Дата активности — ISO (например, 2026-11-24T10:00:00Z)" })
+    .optional()
+    .nullable(),
+  accountId: z.string().trim().min(1).optional().nullable(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export const channelUpdateSchema = channelCreateSchema.partial();
+
+export const accountCreateSchema = z.object({
+  platform: accountPlatformSchema,
+  phone: z.string().trim().min(7, "Укажите телефон").max(30).optional().nullable(),
+  status: accountStatusSchema.optional(),
+  dailyLimit: z.number().int().min(1, "Лимит — от 1").max(200).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export const accountUpdateSchema = accountCreateSchema.partial();
+
+export const listingCreateSchema = z.object({
+  positionId: z.string().min(1, "Не указана позиция"),
+  channelId: z.string().min(1, "Не указан канал"),
+  text: z.string().trim().min(1, "Текст не может быть пустым").max(4000).optional(),
+});
+
+export const listingUpdateSchema = z.object({
+  text: z.string().trim().min(1, "Текст не может быть пустым").max(4000).optional(),
+  status: listingStatusSchema.optional(),
 });
 
 export const certificateCreateSchema = z.object({

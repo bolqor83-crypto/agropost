@@ -3,7 +3,11 @@
  */
 
 import type {
+  AccountPlatform,
+  AccountStatus,
+  ChannelType,
   CultureType,
+  ListingStatus,
   MediaType,
   PositionStatus,
   ShippingMode,
@@ -51,4 +55,37 @@ export const MEDIA_TYPE_LABEL: Record<MediaType, string> = {
 export const TAX_MODE_LABEL: Record<TaxMode, string> = {
   IP: "ИП",
   SELF_EMPLOYED: "самозанятый",
+};
+
+/* ---------- Этап 2 ---------- */
+
+export const CHANNEL_TYPE_LABEL: Record<ChannelType, string> = {
+  TELEGRAM_CHAT: "TG-чат",
+  TELEGRAM_CHANNEL: "TG-канал",
+  AVITO: "Авито",
+  AGROSERVER: "Агросервер",
+  MAX: "MAX",
+  YOULA: "Юла",
+  OTHER: "другая площадка",
+};
+
+export const ACCOUNT_PLATFORM_LABEL: Record<AccountPlatform, string> = {
+  TELEGRAM: "Telegram",
+  AVITO: "Авито",
+  MAX: "MAX",
+  YOULA: "Юла",
+  OTHER: "другая площадка",
+};
+
+export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = {
+  ACTIVE: "активен",
+  LIMITED: "ограничен",
+  PAUSED: "на паузе",
+  BLOCKED: "заблокирован",
+};
+
+export const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
+  DRAFT: "черновик",
+  COPIED: "скопирован",
+  PUBLISHED: "размещён",
 };

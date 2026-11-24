@@ -12,12 +12,22 @@
  */
 
 import type {
+  AccountDTO,
+  AccountInput,
+  ChannelDTO,
+  ChannelInput,
+  ChannelTag,
+  ChannelType,
   CultureTemplateDTO,
+  ListingCreateInput,
+  ListingDTO,
+  ListingUpdateInput,
   MediaUploadDTO,
   PositionDTO,
   PositionInput,
   PositionStatus,
   CultureType,
+  SuggestChannelsDTO,
   SupplierDTO,
   SupplierInput,
   UserDTO,
@@ -164,4 +174,79 @@ export function getMeta(): Promise<{
   stages: Record<string, boolean>;
 }> {
   return request("/meta");
+}
+
+/* ---------- Каналы (этап 2) ---------- */
+
+export interface ChannelFilters {
+  type?: ChannelType;
+  tag?: ChannelTag;
+  region?: string;
+  q?: string;
+}
+
+export function listChannels(filters: ChannelFilters = {}): Promise<ChannelDTO[]> {
+  const params = new URLSearchParams();
+  if (filters.type) params.set("type", filters.type);
+  if (filters.tag) params.set("tag", filters.tag);
+  if (filters.region) params.set("region", filters.region);
+  if (filters.q) params.set("q", filters.q);
+  const qs = params.toString();
+  return request<ChannelDTO[]>(`/channels${qs ? `?${qs}` : ""}`);
+}
+
+export function createChannel(input: ChannelInput): Promise<ChannelDTO> {
+  return request<ChannelDTO>("/channels", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateChannel(id: string, patch: Partial<ChannelInput>): Promise<ChannelDTO> {
+  return request<ChannelDTO>(`/channels/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteChannel(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/channels/${id}`, { method: "DELETE" });
+}
+
+/** Умный подбор: 3–5 каналов под позицию (тип → тег → регион → охват). */
+export function suggestChannels(positionId: string): Promise<SuggestChannelsDTO> {
+  return request<SuggestChannelsDTO>(`/positions/${positionId}/suggest-channels`, {
+    method: "POST",
+  });
+}
+
+/* ---------- Аккаунты (этап 2) ---------- */
+
+export function listAccounts(): Promise<AccountDTO[]> {
+  return request<AccountDTO[]>("/accounts");
+}
+
+export function createAccount(input: AccountInput): Promise<AccountDTO> {
+  return request<AccountDTO>("/accounts", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateAccount(id: string, patch: Partial<AccountInput>): Promise<AccountDTO> {
+  return request<AccountDTO>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteAccount(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/accounts/${id}`, { method: "DELETE" });
+}
+
+/* ---------- Размещения (этап 2) ---------- */
+
+export function listListings(positionId?: string): Promise<ListingDTO[]> {
+  const qs = positionId ? `?positionId=${encodeURIComponent(positionId)}` : "";
+  return request<ListingDTO[]>(`/listings${qs}`);
+}
+
+export function createListing(input: ListingCreateInput): Promise<ListingDTO> {
+  return request<ListingDTO>("/listings", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateListing(id: string, patch: ListingUpdateInput): Promise<ListingDTO> {
+  return request<ListingDTO>(`/listings/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteListing(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/listings/${id}`, { method: "DELETE" });
 }

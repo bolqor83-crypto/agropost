@@ -1,9 +1,10 @@
 /**
  * Форматирование и подписи, которых нет в shared
- * (каналы и сделки — домены этапов 0/2/4, в shared не переносятся).
+ * (сделки — домен этапа 4; подписи каналов — в shared/labels).
  */
 
-import type { ChannelType, DealStage } from "../api/types";
+import { CHANNEL_TYPE_LABEL as SHARED_CHANNEL_TYPE_LABEL } from "@shared/labels";
+import type { DealStage } from "../api/types";
 
 const rubFmt = new Intl.NumberFormat("ru-RU");
 
@@ -15,13 +16,7 @@ export function fmtNum(n: number): string {
   return rubFmt.format(n);
 }
 
-export const CHANNEL_TYPE_LABEL: Record<ChannelType, string> = {
-  telegram: "Telegram",
-  avito: "Авито",
-  agroserver: "Агросервер",
-  max: "Max",
-  yula: "Юла",
-};
+export const CHANNEL_TYPE_LABEL = SHARED_CHANNEL_TYPE_LABEL;
 
 export const DEAL_STAGE_LABEL: Record<DealStage, string> = {
   talks: "Переговоры",

@@ -15,9 +15,10 @@ import {
   positionStatusSchema,
   positionUpdateSchema,
 } from "../validation.js";
-import { includePosition, mapPosition } from "../mappers.js";
+import { includeChannel, includePosition, mapChannel, mapPosition } from "../mappers.js";
 import { computeSalePrice } from "@shared/pricing";
 import { normalizeAttributes } from "@shared/attributes";
+import { rankChannels } from "@shared/channels";
 import type { AttributeField } from "@shared/types";
 
 function buildWhere(query: Record<string, unknown>): Prisma.SupplierPositionWhereInput {
@@ -148,5 +149,18 @@ export async function positionRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     await prisma.supplierPosition.delete({ where: { id } });
     return { ok: true };
+  });
+
+  /* Этап 2: умный подбор каналов под позицию (тип → тег → регион → охват). */
+  app.post("/api/positions/:id/suggest-channels", async (req) => {
+    const { id } = req.params as { id: string };
+    const position = await prisma.supplierPosition.findUnique({
+      where: { id },
+      include: { culture: true },
+    });
+    if (!position) throw notFound("Позиция не найдена");
+    const channels = await prisma.channel.findMany({ include: includeChannel });
+    const suggested = rankChannels(channels.map(mapChannel), position.culture.type, 5);
+    return { positionId: id, channels: suggested };
   });
 }

@@ -146,6 +146,7 @@ export function PositionDetailSheet({
   const refreshCatalog = useCatalog((s) => s.load);
   const resetFlow = usePublishStore((s) => s.reset);
   const choosePosition = usePublishStore((s) => s.choosePosition);
+  const setStep = usePublishStore((s) => s.setStep);
 
   const margin = calcMargin(
     position.salePrice,
@@ -158,6 +159,7 @@ export function PositionDetailSheet({
   const startPublish = () => {
     resetFlow();
     choosePosition(position.id);
+    setStep(2);
     onClose();
     navigate("/publish");
   };

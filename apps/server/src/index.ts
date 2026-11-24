@@ -8,12 +8,16 @@ import { cultureRoutes } from "./routes/cultures.js";
 import { positionRoutes } from "./routes/positions.js";
 import { mediaRoutes } from "./routes/media.js";
 import { userRoutes } from "./routes/user.js";
+import { channelRoutes } from "./routes/channels.js";
+import { accountRoutes } from "./routes/accounts.js";
+import { listingRoutes } from "./routes/listings.js";
 import { registerErrorHandler } from "./errors.js";
 
 /**
  * АгроПост API.
  * Этап 1: поставщики, шаблоны культур, позиции (JSONB-атрибуты),
  * медиа и сертификаты (presigned uploads в R2), профиль пользователя.
+ * Этап 2: каналы, аккаунты, умный подбор и размещения (шаблонный текст).
  * Этап 3 добавит /api/ai/* (OpenRouter, ключ только здесь).
  *
  * Все ошибки — единый формат { error: { code, message } }.
@@ -38,6 +42,9 @@ await app.register(cultureRoutes);
 await app.register(positionRoutes);
 await app.register(mediaRoutes);
 await app.register(userRoutes);
+await app.register(channelRoutes);
+await app.register(accountRoutes);
+await app.register(listingRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

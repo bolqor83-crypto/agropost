@@ -5,15 +5,16 @@ PWA «тихий помощник» для white-label посредника по
 
 - Полное ТЗ: [BRIEF.md](./BRIEF.md) — источник правды для всех этапов.
 - Отчёт по этапу 1: [STAGE_1_REPORT.md](./STAGE_1_REPORT.md).
+- Отчёт по этапу 2: [STAGE_2_REPORT.md](./STAGE_2_REPORT.md).
 - Дизайн-система: «Warm Utility» (см. раздел 8 BRIEF.md).
 
-## Статус: этап 1 из 6 — готов
+## Статус: этап 2 из 6 — готов
 
 | Этап | Что внутри | Статус |
 |---|---|---|
 | 0. Фундамент + визуал | Каркас PWA, дизайн-система, 4 экрана, демо-данные | **готов** |
 | 1. Поставщики и позиции | Справочник, шаблоны культур, JSONB-атрибуты, медиа | **готов** |
-| 2. Каналы | Полный каталог, мультиаккаунты | — |
+| 2. Каналы и размещения | Каталог каналов, мультиаккаунты, умный подбор, черновики | **готов** |
 | 2.5. Парсер | Агросервер + Telegram, обезличенно | — |
 | 3. ИИ + размещение | OpenRouter, grammY-бот, deep links | — |
 | 4. Сделки и документы | Калькулятор доставки, маржа, PDF | — |
@@ -36,6 +37,28 @@ PWA «тихий помощник» для white-label посредника по
   одинаково на сервере, в вебе и в превью.
 - Пульт, «Разместить» и «Сделки» переведены с моков на API.
 
+В этапе 2 реализовано:
+
+- **База (Neon + Prisma)**: модели `Channel`, `Account`, `Listing` (миграция
+  `stage2_channels_accounts_listings`); enum'ы `ChannelType` (7 типов),
+  `AccountPlatform`, `AccountStatus`, `ListingStatus`; теги каналов — `String[]`
+  со словарём в `shared/channels.ts`. Демо-сид: 10 каналов + 2 Telegram-аккаунта.
+- **API (Fastify, :3001)**:
+  - `GET/POST /api/channels`, `GET/PATCH/DELETE /api/channels/:id` — фильтры
+    `type`, `tag`, `region`, `q`; удаление канала с размещениями — 409;
+  - `GET/POST /api/accounts`, `GET/PATCH/DELETE /api/accounts/:id`;
+  - `POST /api/positions/:id/suggest-channels` — умный подбор 3–5 каналов;
+  - `GET /api/listings?positionId=`, `POST /api/listings` (создаёт черновик
+    с шаблонным текстом — сервер, white-label), `PATCH/DELETE /api/listings/:id`
+    (DRAFT→COPIED→PUBLISHED, `publishedAt`, +1 к `usedToday` аккаунта канала).
+- **Экраны (apps/web)**: «Каналы» (фильтры Все/Telegram/Площадки, поиск,
+  теги-чипы, карточка + Sheet), «Аккаунты», мастер «Разместить» в 4 шага
+  (позиция → подбор каналов → черновики под каждый канал → сводка),
+  «размещено в N каналов» в ленте Пульта.
+- **Общая логика**: `shared/channels.ts` (словарь тегов + `rankChannels` —
+  подбор един для API и превью) и `shared/listing-text.ts` (шаблоны текста
+  объявления под площадку — сервер и веб).
+
 ## Структура монорепо
 
 ```
@@ -44,11 +67,12 @@ agropost/
 │   ├── web/                  # React 19 + Vite + TS strict + Tailwind v4 + PWA
 │   │   └── src/
 │   │       ├── app/          # App, router, globals.css
-│   │       ├── routes/       # Pult, Publish, Deals, More, Suppliers, Positions
+│   │       ├── routes/       # Pult, Publish, Deals, More, Suppliers, Positions,
+│   │       │                 #   Channels, Accounts
 │   │       ├── components/   # ui.tsx, layout/, SupplierSheet, PositionDetailSheet,
-│   │       │                 # PositionWizard (4 шага)
-│   │       ├── features/     # channels, deals (моки этапов 0/2/4), listings
-│   │       ├── stores/       # zustand: catalog (API), publish-поток, тосты
+│   │       │                 #   PositionWizard (4 шага), ChannelSheet, AccountSheet
+│   │       ├── features/     # channels (иконки площадок), deals (мок этапа 4)
+│   │       ├── stores/       # zustand: catalog, channels, publish-поток, тосты
 │   │       ├── lib/          # format.ts
 │   │       └── api/          # client.ts (типизированный клиент), types.ts
 │   └── server/               # Node + Fastify + Prisma
@@ -57,9 +81,11 @@ agropost/
 │       └── src/
 │           ├── prisma/schema.prisma
 │           └── routes/       # health, meta, suppliers, cultures, positions,
-│                           #   media (R2 presigned), user
+│                           #   media (R2 presigned), user, channels, accounts,
+│                           #   listings
 ├── shared/                   # контракт API: types, pricing, attributes, labels,
-│                             #   seed-data (общий для сервера и превью)
+│                             #   seed-data, channels (теги + подбор),
+│                             #   listing-text (шаблоны объявлений)
 ├── services/
 │   └── parser/               # Python FastAPI + Telethon + selectolax (этап 2.5)
 ├── tools/
@@ -106,6 +132,43 @@ npm run preview
 ```
 
 Без `VITE_API_URL` сборка ходит на относительный `/api` (для reverse-proxy).
+
+## Как добавить канал
+
+**Ещё → Каналы → «+».** Поля:
+
+- **Название** — например, «Семена Кубани».
+- **Тип** — TG-чат, TG-канал, Авито, Агросервер, MAX, Юла, другая площадка.
+- **Ссылка** — `t.me/username`, `t.me/c/XXX` или URL подачи объявления.
+- **Регион** — например: ЮФО, Краснодарский край, Федеральный.
+- **Теги** (минимум один) — семена / орех / животноводство / опт / общий.
+- **Подписчики и средний охват** — необязательно, заполняются вручную
+  (охват приоритетнее при подборе).
+- **Заметки** — условия подачи, контакты администратора (видны только вам).
+
+В карточке канала доступны: «Открыть» (deep link в новой вкладке),
+«Скопировать URL», «Изменить», «Удалить» (канал с размещениями удалить
+нельзя — сначала удаления).
+
+**Умный подбор при размещении**: тип позиции → тег вида товара → свой регион
+(ЮФО/Краснодарский край) → больший охват. Алгоритм — `shared/channels.ts`,
+един для API и превью.
+
+## Как настроить аккаунты
+
+**Ещё → Аккаунты → «+».** Поля:
+
+- **Платформа** — Telegram, Авито, MAX, Юла (или другая площадка).
+- **Телефон** — необязательно.
+- **Статус** — активен / ограничен / на паузе / заблокирован.
+- **Лимит размещений в день** — по умолчанию 20.
+- **Заметки**.
+
+Счётчик «использовано сегодня» растёт при каждом «Размещено» в канале
+с привязанным аккаунтом и сбрасывается на следующий день.
+
+Это только учёт: сессии (Telethon/cookies) и автопостинг появятся
+на этапе 3.
 
 ### Иконки
 

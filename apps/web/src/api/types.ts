@@ -1,29 +1,14 @@
 /**
- * Домен этапов 0/2/4: каналы, сделки, лента активности.
- * Поставщики, культуры и позиции (этап 1) живут в shared/types —
- * это контракт API, общий с сервером и Next-превью.
+ * Домен сделок (этап 4) и лента активности.
+ * Каналы/аккаунты/размещения (этап 2) и каталог (этап 1) живут
+ * в shared/types — это контракт API, общий с сервером и Next-превью.
  */
 
-export type ChannelType = "telegram" | "avito" | "agroserver" | "max" | "yula";
+import type { ChannelType } from "@shared/types";
 
-export interface Channel {
-  id: string;
-  name: string;
-  type: ChannelType;
-  region: string;
-  tags: string[];
-  audience: number | null;
-  /** свой канал (пользователь — админ) → автопостинг через бота */
-  owned: boolean;
-  accountId?: string;
-}
+export type { ChannelType };
 
-export type DealStage =
-  | "talks"
-  | "awaiting_payment"
-  | "paid"
-  | "shipping"
-  | "done";
+export type DealStage = "talks" | "awaiting_payment" | "paid" | "shipping" | "done";
 
 export interface Deal {
   id: string;
@@ -44,8 +29,11 @@ export interface Deal {
 export interface ActivityItem {
   id: string;
   positionName: string;
-  channelName: string;
-  channelType: ChannelType;
+  /** Имя канала (одно размещение) или null (сводка «в N каналов»). */
+  channelName: string | null;
+  channelType: ChannelType | null;
+  /** Заполнен при channelName = null: во сколько каналов разместили. */
+  channelsCount?: number;
   mode: "auto" | "semi";
   when: string;
 }

@@ -145,3 +145,109 @@ export interface MediaUploadDTO {
   method: "PUT";
   headers: Record<string, string>;
 }
+
+/* ---------- Этап 2: каналы, аккаунты, размещения ---------- */
+
+export type ChannelType =
+  | "TELEGRAM_CHAT"
+  | "TELEGRAM_CHANNEL"
+  | "AVITO"
+  | "AGROSERVER"
+  | "MAX"
+  | "YOULA"
+  | "OTHER";
+
+/** Словарь тегов каналов — константа CHANNEL_TAGS в shared/channels.ts. */
+export type ChannelTag = "SEEDS" | "NUT" | "LIVESTOCK" | "WHOLESALE" | "GENERAL";
+
+export type AccountPlatform = "TELEGRAM" | "AVITO" | "MAX" | "YOULA" | "OTHER";
+export type AccountStatus = "ACTIVE" | "LIMITED" | "PAUSED" | "BLOCKED";
+export type ListingStatus = "DRAFT" | "COPIED" | "PUBLISHED";
+
+export interface ChannelDTO {
+  id: string;
+  name: string;
+  type: ChannelType;
+  /** Deep link: t.me/…, URL подачи объявления, URL чата. */
+  url: string;
+  region: string;
+  tags: ChannelTag[];
+  subscribersCount: number | null;
+  averageReach: number | null;
+  lastActivityAt: string | null;
+  /** Аккаунт, которым размещаем (null — вручную, без аккаунта). */
+  accountId: string | null;
+  notes: string | null;
+  listingCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountDTO {
+  id: string;
+  platform: AccountPlatform;
+  phone: string | null;
+  status: AccountStatus;
+  dailyLimit: number;
+  /** Использовано сегодня (сбрасывается при смене дня, растёт при «размещено»). */
+  usedToday: number;
+  /** День, к которому относится счётчик (ISO). */
+  usedDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListingDTO {
+  id: string;
+  positionId: string;
+  channelId: string;
+  /** Черновик текста (white-label: поставщик не упоминается). */
+  text: string;
+  status: ListingStatus;
+  publishedAt: string | null;
+  channel: ChannelDTO;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ---------- Тела запросов этапа 2 ---------- */
+
+export interface ChannelInput {
+  name: string;
+  type: ChannelType;
+  url: string;
+  region: string;
+  tags: ChannelTag[];
+  subscribersCount?: number | null;
+  averageReach?: number | null;
+  lastActivityAt?: string | null;
+  accountId?: string | null;
+  notes?: string;
+}
+
+export interface AccountInput {
+  platform: AccountPlatform;
+  phone?: string | null;
+  status?: AccountStatus;
+  dailyLimit?: number;
+  notes?: string;
+}
+
+export interface ListingCreateInput {
+  positionId: string;
+  channelId: string;
+  /** Свой текст черновика; по умолчанию — серверный шаблон (white-label). */
+  text?: string;
+}
+
+export interface ListingUpdateInput {
+  text?: string;
+  status?: ListingStatus;
+}
+
+/** Ответ POST /api/positions/:id/suggest-channels. */
+export interface SuggestChannelsDTO {
+  positionId: string;
+  channels: ChannelDTO[];
+}

@@ -3,7 +3,6 @@
 // (attributes JsonB по шаблону культуры), Media, Certificate, User.
 // Этап 2: Channel, Account, Listing. Этап 4: Deal, Shipment, Claim, Document.
 // Этап 2.5 (парсер): CompetitorPrice, PriceAlert.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -47,6 +46,39 @@ enum MediaType {
 enum TaxMode {
   IP
   SELF_EMPLOYED
+}
+
+/* ---------- Этап 2: каналы, аккаунты, размещения ---------- */
+
+enum ChannelType {
+  TELEGRAM_CHAT
+  TELEGRAM_CHANNEL
+  AVITO
+  AGROSERVER
+  MAX
+  YOULA
+  OTHER
+}
+
+enum AccountPlatform {
+  TELEGRAM
+  AVITO
+  MAX
+  YOULA
+  OTHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  LIMITED
+  PAUSED
+  BLOCKED
+}
+
+enum ListingStatus {
+  DRAFT
+  COPIED
+  PUBLISHED
 }
 
 model Supplier {
@@ -97,6 +129,7 @@ model SupplierPosition {
   status         PositionStatus   @default(IN_STOCK)
   media          Media[]
   certificates   Certificate[]
+  listings       Listing[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -140,4 +173,67 @@ model User {
   taxRate   Decimal  @db.Decimal(5, 4)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/* Этап 2. Теги каналов — String[] со словарём в коде (shared/channels.ts,
+   zod-валидация): новый тег без миграции. Сессии аккаунтов — этап 3. */
+
+model Account {
+  id         String          @id @default(cuid())
+  platform   AccountPlatform
+  phone      String?
+  status     AccountStatus   @default(ACTIVE)
+  /// Лимит размещений в день (учёт; автоматический постинг — этап 3).
+  dailyLimit Int             @default(20)
+  /// Использовано за день usedDate (сбрасывается при смене дня).
+  usedToday  Int             @default(0)
+  usedDate   DateTime?
+  notes      String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  channels   Channel[]
+
+  @@index([platform])
+  @@index([status])
+}
+
+model Channel {
+  id               String      @id @default(cuid())
+  name             String
+  type             ChannelType
+  /// Deep link: t.me/username, t.me/c/XXX, URL подачи/чата.
+  url              String
+  region           String
+  tags             String[]
+  subscribersCount Int?
+  averageReach     Int?
+  lastActivityAt   DateTime?
+  /// Аккаунт, которым размещаем (SetNull при удалении аккаунта).
+  accountId        String?
+  account          Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  listings         Listing[]
+
+  @@index([type])
+  @@index([region])
+}
+
+model Listing {
+  id          String           @id @default(cuid())
+  position    SupplierPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  positionId  String
+  channel     Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channelId   String
+  /// Черновик текста (white-label: поставщик не упоминается).
+  text        String
+  status      ListingStatus    @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([positionId])
+  @@index([channelId])
+  @@index([status])
 }
