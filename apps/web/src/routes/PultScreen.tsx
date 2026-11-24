@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bean, ChevronRight, Inbox, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
+import { Bean, ChevronRight, Handshake, Inbox, Send, ShieldCheck, Sparkles, Sprout, Wheat } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import type { PositionDTO } from "@shared/types";
 import type { AiAdviceData, AiMeta } from "@shared/ai";
@@ -96,6 +96,7 @@ export function PultScreen() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [newLeads, setNewLeads] = useState<number | null>(null);
+  const [activeDeals, setActiveDeals] = useState<number | null>(null);
   const [advice, setAdvice] = useState<{
     loading: boolean;
     data?: AiAdviceData;
@@ -132,6 +133,11 @@ export function PultScreen() {
       .getTelegramStatus()
       .then((r) => setNewLeads(r.newLeads))
       .catch(() => setNewLeads(null));
+    /* Этап 4: счётчик активных сделок в шапке. */
+    api
+      .listDeals({ status: "ACTIVE" })
+      .then((r) => setActiveDeals(r.items.length))
+      .catch(() => setActiveDeals(null));
   }, [load]);
 
   const dateStr = new Intl.DateTimeFormat("ru-RU", {
@@ -165,6 +171,15 @@ export function PultScreen() {
               Новые: {newLeads}
             </>
           ) : null}
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/deals")}
+          aria-label={activeDeals !== null ? `Активные сделки: ${activeDeals}` : "Сделки"}
+          className="press inline-flex items-center gap-1.5 rounded-full bg-subtle px-3.5 py-2 text-[12px] font-semibold text-ink"
+        >
+          <Handshake size={14} />
+          {activeDeals !== null ? `Сделки: ${activeDeals}` : "Сделки"}
         </button>
         <button
           type="button"

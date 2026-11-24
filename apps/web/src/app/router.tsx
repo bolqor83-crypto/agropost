@@ -6,6 +6,7 @@ import { DealsScreen } from "../routes/DealsScreen";
 import { InboxScreen } from "../routes/InboxScreen";
 import { TelegramBotScreen } from "../routes/TelegramBotScreen";
 import { MoreScreen } from "../routes/MoreScreen";
+import { ProfileScreen } from "../routes/ProfileScreen";
 import { SuppliersScreen } from "../routes/SuppliersScreen";
 import { PositionsScreen } from "../routes/PositionsScreen";
 import { ChannelsScreen } from "../routes/ChannelsScreen";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "inbox", element: <InboxScreen /> },
       { path: "telegram", element: <TelegramBotScreen /> },
       { path: "more", element: <MoreScreen /> },
+      { path: "profile", element: <ProfileScreen /> },
       { path: "suppliers", element: <SuppliersScreen /> },
       { path: "positions", element: <PositionsScreen /> },
       { path: "channels", element: <ChannelsScreen /> },

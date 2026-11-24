@@ -8,6 +8,7 @@ import {
   Bot,
   ChevronRight,
   FileText,
+  IdCard,
   Inbox,
   Megaphone,
   Package,
@@ -38,8 +39,9 @@ const SECTIONS: {
   { icon: Smartphone, name: "Аккаунты", stage: "этап 2", hint: "Мультиаккаунты и лимиты размещений", to: "/accounts" },
   { icon: TrendingUp, name: "Цены рынка", stage: "этап 2.5", hint: "Агросервер и Telegram, обезличенно" },
   { icon: Send, name: "ИИ-генератор и бот", stage: "этап 3", hint: "Тексты под площадку, white-label" },
-  { icon: FileText, name: "Документы и логистика", stage: "этап 4", hint: "Счёт, договор, ТН, УПД, доставка" },
-  { icon: ShieldCheck, name: "Рекламации", stage: "этап 4", hint: "Претензии покупателя, переадресация" },
+  { icon: FileText, name: "Документы и логистика", stage: "этап 4", hint: "Счёт, договор, ТН, УПД, доставка", to: "/deals" },
+  { icon: ShieldCheck, name: "Рекламации", stage: "этап 4", hint: "Претензии покупателя, переадресация", to: "/deals" },
+  { icon: IdCard, name: "Реквизиты и налог", stage: "этап 4", hint: "Продавец в документах, режим по умолчанию", to: "/profile" },
   { icon: Bot, name: "«Что сделать сейчас?»", stage: "этап 5", hint: "Совет по кнопке, не проактивно" },
 ];
 
@@ -82,7 +84,7 @@ export function MoreScreen() {
 
         <button
           type="button"
-          onClick={() => showToast("Настройки — с этапа 4 (аккаунты, налог, наценка)")}
+          onClick={() => navigate("/profile")}
           className="press mt-4 flex w-full items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-3.5 text-left"
         >
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-subtle text-soft">
@@ -90,7 +92,7 @@ export function MoreScreen() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-ink">Настройки</p>
-            <p className="text-[12px] font-medium text-soft">Аккаунты, налог, наценка</p>
+            <p className="text-[12px] font-medium text-soft">Реквизиты, налог — этап 4</p>
           </div>
           <ChevronRight size={16} className="shrink-0 text-soft" />
         </button>
@@ -98,7 +100,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · этап 3.2 из 6 · Warm Utility
+            АгроПост · этап 4 из 6 · Warm Utility
           </p>
         </div>
       </section>

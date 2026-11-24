@@ -14,11 +14,25 @@
 import type {
   AccountDTO,
   AccountInput,
+  CarrierDTO,
+  CarrierInput,
   ChannelDTO,
   ChannelInput,
   ChannelTag,
   ChannelType,
+  ClaimCreateInput,
+  ClaimDTO,
+  ClaimStatus,
+  ClaimUpdateInput,
   CultureTemplateDTO,
+  DealCreateInput,
+  DealDetailDTO,
+  DealShipInput,
+  DealStatus,
+  DealUpdateInput,
+  DeliveryCalculateDTO,
+  DocumentDTO,
+  DocumentType,
   LeadDetailDTO,
   LeadDTO,
   LeadDraftDTO,
@@ -42,6 +56,8 @@ import type {
   TelegramPublishDTO,
   TelegramStatusDTO,
   UserDTO,
+  UserProfileDTO,
+  UserProfileInput,
 } from "@shared/types";
 import type {
   AiAdviceData,
@@ -400,6 +416,166 @@ export function planAiLogistics(
 ): Promise<AiResponse<AiLogisticsData>> {
   return request<AiResponse<AiLogisticsData>>("/ai/logistics", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/* ---------- Этап 4: сделки, документы, рекламации, ТК ---------- */
+
+/** Фильтр списка сделок: конкретный статус + группы ACTIVE / FINISHED. */
+export type DealListStatus = DealStatus | "ACTIVE" | "FINISHED";
+
+export interface DealFilters {
+  status?: DealListStatus;
+  q?: string;
+  period?: "all" | "week" | "month";
+}
+
+export function listDeals(filters: DealFilters = {}): Promise<{ items: DealDetailDTO[] }> {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", filters.status);
+  if (filters.q) params.set("q", filters.q);
+  if (filters.period && filters.period !== "all") params.set("period", filters.period);
+  const qs = params.toString();
+  return request<{ items: DealDetailDTO[] }>(`/deals${qs ? `?${qs}` : ""}`);
+}
+
+export function getDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}`);
+}
+
+export function createDeal(input: DealCreateInput): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>("/deals", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateDeal(id: string, patch: DealUpdateInput): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteDeal(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/deals/${id}`, { method: "DELETE" });
+}
+
+export function awaitingPaymentDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/awaiting-payment`, { method: "POST" });
+}
+
+export function payDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/pay`, { method: "POST" });
+}
+
+export function shipDeal(id: string, input: DealShipInput): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/ship`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deliverDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/deliver`, { method: "POST" });
+}
+
+export function closeDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/close`, { method: "POST" });
+}
+
+export function cancelDeal(id: string): Promise<DealDetailDTO> {
+  return request<DealDetailDTO>(`/deals/${id}/cancel`, { method: "POST" });
+}
+
+/* Документы */
+
+export function listDealDocuments(dealId: string): Promise<{ items: DocumentDTO[] }> {
+  return request<{ items: DocumentDTO[] }>(`/deals/${dealId}/documents`);
+}
+
+/** Генерация PDF: type — invoice | contract | transport_note | upd. */
+export function generateDealDocument(
+  dealId: string,
+  type: DocumentType,
+): Promise<{ ok: true; document: DocumentDTO }> {
+  return request<{ ok: true; document: DocumentDTO }>(`/deals/${dealId}/documents/${type}`, {
+    method: "POST",
+  });
+}
+
+/** Скачивание PDF как файла (бинарный ответ). */
+export async function downloadDocument(doc: DocumentDTO): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/documents/${doc.id}/file`);
+  } catch {
+    throw new ApiError(0, "NETWORK", "Сервер недоступен — проверьте API");
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, "DOWNLOAD_FAILED", "Не удалось скачать документ");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${doc.number}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* Калькулятор доставки */
+
+export function calculateDelivery(input: {
+  positionId?: string;
+  toCity: string;
+  volumeKg: number;
+}): Promise<DeliveryCalculateDTO> {
+  return request<DeliveryCalculateDTO>("/deals/calculate-delivery", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/* Справочник ТК */
+
+export function listCarriers(): Promise<{ items: CarrierDTO[] }> {
+  return request<{ items: CarrierDTO[] }>("/carriers");
+}
+
+export function createCarrier(input: CarrierInput): Promise<CarrierDTO> {
+  return request<CarrierDTO>("/carriers", { method: "POST", body: JSON.stringify(input) });
+}
+
+/* Рекламации */
+
+export interface ClaimFilters {
+  dealId?: string;
+  status?: ClaimStatus;
+}
+
+export function listClaims(filters: ClaimFilters = {}): Promise<{ items: ClaimDTO[] }> {
+  const params = new URLSearchParams();
+  if (filters.dealId) params.set("dealId", filters.dealId);
+  if (filters.status) params.set("status", filters.status);
+  const qs = params.toString();
+  return request<{ items: ClaimDTO[] }>(`/claims${qs ? `?${qs}` : ""}`);
+}
+
+export function createClaim(input: ClaimCreateInput): Promise<ClaimDTO> {
+  return request<ClaimDTO>("/claims", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateClaim(id: string, patch: ClaimUpdateInput): Promise<ClaimDTO> {
+  return request<ClaimDTO>(`/claims/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+/* Реквизиты профиля */
+
+export function getUserProfile(): Promise<UserProfileDTO | null> {
+  return request<UserProfileDTO | null>("/user/profile");
+}
+
+export function updateUserProfile(input: UserProfileInput): Promise<UserProfileDTO | null> {
+  return request<UserProfileDTO | null>("/user/profile", {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

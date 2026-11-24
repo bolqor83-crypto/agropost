@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   CalendarDays,
   Check,
+  Handshake,
   Image as ImageIcon,
   Pencil,
   Send,
@@ -27,6 +28,7 @@ import * as api from "../api/client";
 import { fmtNum, fmtRub } from "../lib/format";
 import { taxRateOf, useCatalog } from "../stores/catalog";
 import { usePublishStore, useToastStore } from "../stores/publish";
+import { useDealCreateStore } from "../stores/deal-create";
 import { Btn, Chip, InfoRow, Sheet, Skeleton, TextInput } from "./ui";
 
 function statusTone(status: PositionDTO["status"]): "green" | "warm" | "neutral" {
@@ -200,6 +202,7 @@ export function PositionDetailSheet({
   const navigate = useNavigate();
   const user = useCatalog((s) => s.user);
   const refreshCatalog = useCatalog((s) => s.load);
+  const setPendingDeal = useDealCreateStore((s) => s.setPending);
   const resetFlow = usePublishStore((s) => s.reset);
   const choosePosition = usePublishStore((s) => s.choosePosition);
   const setStep = usePublishStore((s) => s.setStep);
@@ -373,6 +376,23 @@ export function PositionDetailSheet({
         <Btn full size="lg" onClick={startPublish}>
           <Send size={17} />
           Разместить эту позицию
+        </Btn>
+      </div>
+
+      {/* Этап 4: сделка из позиции (товар и цены подставятся) */}
+      <div className="pt-2">
+        <Btn
+          full
+          variant="secondary"
+          onClick={() => {
+            setPendingDeal({ positionId: position.id });
+            onClose();
+            navigate("/deals");
+          }}
+          ariaLabel="Создать сделку из позиции"
+        >
+          <Handshake size={15} />
+          Создать сделку
         </Btn>
       </div>
         <p className="flex items-center justify-center gap-1.5 px-1 pt-3 text-center text-[11px] font-medium text-soft">

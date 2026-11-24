@@ -1,30 +1,12 @@
 /**
- * Домен сделок (этап 4) и лента активности.
- * Каналы/аккаунты/размещения (этап 2) и каталог (этап 1) живут
- * в shared/types — это контракт API, общий с сервером и Next-превью.
+ * Лента активности Пульта. Каналы/аккаунты/размещения (этап 2) и каталог
+ * (этап 1) живут в shared/types — это контракт API, общий с сервером и
+ * превью. Сделки (этап 4) — тоже в shared/types (DealDTO и друзья).
  */
 
 import type { ChannelType } from "@shared/types";
 
 export type { ChannelType };
-
-export type DealStage = "talks" | "awaiting_payment" | "paid" | "shipping" | "done";
-
-export interface Deal {
-  id: string;
-  positionId: string;
-  buyer: string;
-  bags: number;
-  stage: DealStage;
-  delivery: {
-    mode: "pickup" | "carrier" | "driver";
-    carrier?: string;
-    costRub: number;
-    /** доставку всегда оплачивает покупатель */
-    paidByBuyer: true;
-    track?: string;
-  };
-}
 
 export interface ActivityItem {
   id: string;

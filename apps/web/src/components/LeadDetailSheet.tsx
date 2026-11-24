@@ -4,10 +4,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   Ban,
   Check,
+  Handshake,
   Package,
   Send,
   Sparkles,
@@ -19,6 +21,7 @@ import * as api from "../api/client";
 import { fmtRub } from "../lib/format";
 import { useToastStore } from "../stores/publish";
 import { useCatalog } from "../stores/catalog";
+import { useDealCreateStore } from "../stores/deal-create";
 import { Btn, Card, Chip, Field, InfoRow, Sheet, Skeleton, TextArea } from "../components/ui";
 import { fmtWhen, LEAD_STATUS_LABEL } from "../routes/InboxScreen";
 
@@ -57,6 +60,8 @@ export function LeadDetailSheet({
   onChanged?: () => void;
 }) {
   const showToast = useToastStore((s) => s.show);
+  const navigate = useNavigate();
+  const setPendingDeal = useDealCreateStore((s) => s.setPending);
   const { positions, load: loadPositions } = useCatalog();
   const [lead, setLead] = useState<LeadDetailDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -303,6 +308,29 @@ export function LeadDetailSheet({
                 В работу
               </Btn>
             )}
+          </div>
+
+          {/* Этап 4: сделка из лида (покупатель и позиция подставятся) */}
+          <div className="mt-4">
+            <Btn
+              full
+              variant="secondary"
+              onClick={() => {
+                setPendingDeal({
+                  leadId: lead.id,
+                  ...(lead.positionId ? { positionId: lead.positionId } : {}),
+                  buyerName: lead.name ?? lead.externalUsername ?? undefined,
+                  buyerPhone: lead.phone ?? undefined,
+                  buyerRegion: lead.region ?? undefined,
+                });
+                onClose();
+                navigate("/deals");
+              }}
+              ariaLabel="Создать сделку из лида"
+            >
+              <Handshake size={15} />
+              Создать сделку
+            </Btn>
           </div>
 
           {/* Заметка */}

@@ -272,3 +272,154 @@ export const telegramPublishSchema = z.object({
 export const telegramSetupWebhookSchema = z.object({
   url: z.string().trim().url("Укажите ссылку (https://…)").max(300).optional(),
 });
+
+/* ---------- Этап 4: сделки, доставка, документы, рекламации ---------- */
+
+export const dealStatusSchema = z.enum([
+  "DRAFT",
+  "AWAITING_PAYMENT",
+  "PAID",
+  "SHIPPED",
+  "DELIVERED",
+  "CLOSED",
+  "CANCELLED",
+]);
+
+/** Псевдо-группы для фильтра списка: ACTIVE (в работе) и FINISHED (закрыты). */
+export const dealListStatusSchema = z.enum([
+  "DRAFT",
+  "AWAITING_PAYMENT",
+  "PAID",
+  "SHIPPED",
+  "DELIVERED",
+  "CLOSED",
+  "CANCELLED",
+  "ACTIVE",
+  "FINISHED",
+]);
+
+export const dealTaxModeSchema = z.enum(["IP_6", "SELF_EMPLOYED_4", "SELF_EMPLOYED_6"]);
+export const deliveryMethodSchema = z.enum(["PICKUP", "TK", "FELLOW_TRAVELER"]);
+export const documentTypeSchema = z.enum(["INVOICE", "CONTRACT", "TRANSPORT_NOTE", "UPD"]);
+export const claimStatusSchema = z.enum([
+  "NEW",
+  "IN_REVIEW",
+  "RESOLVED",
+  "REJECTED",
+  "FORWARDED_TO_SUPPLIER",
+]);
+export const dealPeriodSchema = z.enum(["all", "week", "month"]);
+
+export const dealCreateSchema = z.object({
+  leadId: z.string().trim().min(1).optional(),
+  positionId: z.string().trim().min(1).optional(),
+  buyerName: z.string().trim().min(1, "Укажите имя покупателя").max(120).optional(),
+  buyerPhone: z.string().trim().min(5, "Укажите телефон покупателя").max(30).optional(),
+  buyerRegion: z.string().trim().min(1, "Укажите регион покупателя").max(80).optional(),
+  buyerInn: z
+    .string()
+    .trim()
+    .regex(/^\d{10,12}$/, "ИНН — 10–12 цифр")
+    .optional()
+    .nullable(),
+  volumeKg: z.number().positive("Объём должен быть больше нуля").max(10_000_000),
+  salePrice: z.number().min(0).max(1_000_000).optional(),
+  supplierPrice: z.number().min(0).max(1_000_000).optional(),
+  taxMode: dealTaxModeSchema.optional(),
+  deliveryMethod: deliveryMethodSchema.optional(),
+  deliveryCost: z.number().min(0).max(10_000_000).optional().nullable(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export const dealUpdateSchema = z
+  .object({
+    buyerName: z.string().trim().min(1, "Укажите имя покупателя").max(120).optional(),
+    buyerPhone: z.string().trim().min(5, "Укажите телефон покупателя").max(30).optional(),
+    buyerRegion: z.string().trim().min(1, "Укажите регион покупателя").max(80).optional(),
+    buyerInn: z
+      .string()
+      .trim()
+      .regex(/^\d{10,12}$/, "ИНН — 10–12 цифр")
+      .optional()
+      .nullable(),
+    volumeKg: z.number().positive("Объём должен быть больше нуля").max(10_000_000).optional(),
+    salePrice: z.number().min(0).max(1_000_000).optional(),
+    supplierPrice: z.number().min(0).max(1_000_000).optional(),
+    taxMode: dealTaxModeSchema.optional(),
+    deliveryMethod: deliveryMethodSchema.optional(),
+    deliveryCost: z.number().min(0).max(10_000_000).optional().nullable(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+    status: dealStatusSchema.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Пустой запрос на обновление" });
+
+export const dealShipSchema = z.object({
+  method: deliveryMethodSchema.optional(),
+  carrierId: z.string().trim().min(1).optional().nullable(),
+  carrierName: z.string().trim().min(1).max(80).optional().nullable(),
+  fromCity: z.string().trim().min(1, "Откуда отгружаем").max(60),
+  toCity: z.string().trim().min(1, "Куда доставляем").max(60),
+  cost: z.number().min(0, "Стоимость доставки не может быть отрицательной").max(10_000_000),
+  days: z.number().int().min(0).max(60).optional().nullable(),
+  trackingNumber: z.string().trim().min(1).max(40).optional().nullable(),
+});
+
+export const dealCalculateSchema = z.object({
+  positionId: z.string().trim().min(1).optional(),
+  toCity: z.string().trim().min(1, "Куда доставляем").max(60),
+  volumeKg: z.number().positive("Объём должен быть больше нуля").max(10_000_000),
+});
+
+export const claimCreateSchema = z.object({
+  dealId: z.string().trim().min(1, "Не указана сделка"),
+  description: z.string().trim().min(1, "Опишите претензию").max(4000, "Описание — до 4000 символов"),
+});
+
+export const claimUpdateSchema = z
+  .object({
+    status: claimStatusSchema.optional(),
+    resolution: z.string().trim().max(4000).optional(),
+    forwardedToSupplier: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Пустой запрос на обновление" });
+
+export const carrierCreateSchema = z.object({
+  name: z.string().trim().min(1, "Укажите название ТК").max(80),
+  city: z.string().trim().min(1, "Укажите город").max(60),
+  pickupAvailable: z.boolean().optional(),
+  isLocal: z.boolean().optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export const userProfileSchema = z
+  .object({
+    name: z.string().trim().min(1, "Укажите ФИО/название").max(120).optional(),
+    inn: z
+      .string()
+      .trim()
+      .regex(/^\d{10,12}$/, "ИНН — 10–12 цифр")
+      .optional()
+      .nullable(),
+    ogrnip: z
+      .string()
+      .trim()
+      .regex(/^\d{13,15}$/, "ОГРНИП — 13–15 цифр")
+      .optional()
+      .nullable(),
+    address: z.string().trim().max(200).optional().nullable(),
+    bank: z.string().trim().max(80).optional().nullable(),
+    bik: z
+      .string()
+      .trim()
+      .regex(/^\d{9}$/, "БИК — 9 цифр")
+      .optional()
+      .nullable(),
+    account: z
+      .string()
+      .trim()
+      .regex(/^\d{20}$/, "Расчётный счёт — 20 цифр")
+      .optional()
+      .nullable(),
+    dealTaxMode: dealTaxModeSchema.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Пустой запрос на обновление" });

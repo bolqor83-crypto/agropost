@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ChannelType } from "@shared/types";
-import { INITIAL_ACTIVITY } from "../features/deals/deals.mock";
+import { INITIAL_ACTIVITY } from "../features/activity.mock";
 import type { ActivityItem } from "../api/types";
 
 /**

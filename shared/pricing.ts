@@ -1,3 +1,5 @@
+import type { DealTaxMode, TaxMode } from "./types";
+
 /**
  * Экономика позиции. Единый расчёт для сервера, веба и превью.
  *
@@ -32,4 +34,79 @@ export function calcMargin(
   const gross = revenue - cost;
   const tax = Math.round(revenue * taxRate);
   return { qtyKg: volumeKg, revenue, cost, gross, tax, net: gross - tax };
+}
+
+/* ---------- Этап 4: экономика сделки с налогом ---------- */
+
+/** Ставка налога по режиму сделки: ИП 6% / самозанятый 4% / 6%. */
+export const DEAL_TAX_RATE: Record<DealTaxMode, number> = {
+  IP_6: 0.06,
+  SELF_EMPLOYED_4: 0.04,
+  SELF_EMPLOYED_6: 0.06,
+};
+
+const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
+export interface DealEconomics {
+  volumeKg: number;
+  salePrice: number;
+  supplierPrice: number;
+  /** Выручка = цена продажи × объём. */
+  revenue: number;
+  /** Закуп = цена поставщика × объём. */
+  cost: number;
+  /** Разница до налога. */
+  gross: number;
+  taxAmount: number;
+  /** (продажа − закуп) × объём − налог. Доставка не входит (платит покупатель). */
+  margin: number;
+}
+
+/**
+ * Экономика сделки — единый расчёт для сервера, веба и превью.
+ * taxAmount = выручка × ставка режима; margin = gross − taxAmount.
+ */
+export function computeDealEconomics(input: {
+  salePrice: number;
+  supplierPrice: number;
+  volumeKg: number;
+  taxMode: DealTaxMode;
+}): DealEconomics {
+  const revenue = round2(input.salePrice * input.volumeKg);
+  const cost = round2(input.supplierPrice * input.volumeKg);
+  const gross = round2(revenue - cost);
+  const taxAmount = round2(revenue * (DEAL_TAX_RATE[input.taxMode] ?? 0.06));
+  return {
+    volumeKg: input.volumeKg,
+    salePrice: input.salePrice,
+    supplierPrice: input.supplierPrice,
+    revenue,
+    cost,
+    gross,
+    taxAmount,
+    margin: round2(gross - taxAmount),
+  };
+}
+
+/**
+ * Режим сделки по умолчанию — из профиля (TaxMode + taxRate):
+ * ИП → IP_6; самозанятый 4% → SELF_EMPLOYED_4; иначе SELF_EMPLOYED_6.
+ */
+export function deriveDealTaxMode(taxMode: TaxMode, taxRate: number): DealTaxMode {
+  if (taxMode === "IP") return "IP_6";
+  return taxRate <= 0.04 ? "SELF_EMPLOYED_4" : "SELF_EMPLOYED_6";
+}
+
+/** Обратное отображение: режим сделки → TaxMode + taxRate профиля. */
+export function dealTaxModeToProfile(
+  mode: DealTaxMode,
+): { taxMode: TaxMode; taxRate: number } {
+  switch (mode) {
+    case "IP_6":
+      return { taxMode: "IP", taxRate: 0.06 };
+    case "SELF_EMPLOYED_4":
+      return { taxMode: "SELF_EMPLOYED", taxRate: 0.04 };
+    case "SELF_EMPLOYED_6":
+      return { taxMode: "SELF_EMPLOYED", taxRate: 0.06 };
+  }
 }

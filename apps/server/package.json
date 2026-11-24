@@ -13,8 +13,9 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:generate": "prisma generate",
-    "test": "bun test src/ai src/telegram",
-    "test:golden": "bun test src/ai/__tests__/golden.integration.test.ts"
+    "test": "bun test src/ai src/telegram src/deals src/documents",
+    "test:golden": "bun test src/ai/__tests__/golden.integration.test.ts",
+    "test:deals": "bun test src/deals src/documents"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.712.0",
@@ -24,11 +25,13 @@
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "grammy": "^1.48.0",
+    "pdfmake": "^0.3.15",
     "tsx": "^4.19.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "pdf-parse": "^2.4.5",
     "prisma": "^6.2.1",
     "typescript": "~5.7.2"
   }

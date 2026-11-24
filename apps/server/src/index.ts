@@ -16,6 +16,9 @@ import { aiRoutes } from "./routes/ai.js";
 import { leadsRoutes } from "./routes/leads.js";
 import { telegramRoutes } from "./routes/telegram.js";
 import { telegramWebhookRoutes } from "./routes/telegramWebhook.js";
+import { dealsRoutes } from "./routes/deals.js";
+import { claimsRoutes } from "./routes/claims.js";
+import { carrierRoutes } from "./routes/carriers.js";
 import { getTelegram, setupWebhookAtStartup } from "./telegram/index.js";
 import { registerErrorHandler } from "./errors.js";
 
@@ -27,6 +30,8 @@ import { registerErrorHandler } from "./errors.js";
  * Этап 3.0: /api/ai/* — пять use cases (GLM через Z.AI, OpenRouter — резерв).
  * Этап 3.2: Telegram-бот (webhook + секрет), инбокс /api/leads,
  * автопостинг в свои каналы через бота.
+ * Этап 4: сделки, калькулятор доставки, PDF-документы (pdfmake),
+ * рекламации, справочник ТК, реквизиты профиля.
  *
  * Все ошибки — единый формат { error: { code, message } }.
  * Стек: tsx в рантайме (shared/ лежит вне apps/server, emit не нужен).
@@ -57,6 +62,9 @@ await app.register(parserRoutes);
 await app.register(aiRoutes);
 await app.register(leadsRoutes);
 await app.register(telegramRoutes);
+await app.register(dealsRoutes);
+await app.register(claimsRoutes);
+await app.register(carrierRoutes);
 
 /* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
 const telegram = getTelegram();

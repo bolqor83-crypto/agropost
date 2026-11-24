@@ -462,3 +462,247 @@ export interface LeadReplyInput {
   /** id AiCall черновика, если отправили его как есть/с правками. */
   aiCallId?: string;
 }
+
+/* ---------- Этап 4: сделки, доставка, документы, рекламации ---------- */
+
+export type DealStatus =
+  | "DRAFT"
+  | "AWAITING_PAYMENT"
+  | "PAID"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CLOSED"
+  | "CANCELLED";
+
+/** Налоговый режим сделки: ИП 6% / самозанятый 4% / самозанятый 6%. */
+export type DealTaxMode = "IP_6" | "SELF_EMPLOYED_4" | "SELF_EMPLOYED_6";
+
+export type DeliveryMethod = "PICKUP" | "TK" | "FELLOW_TRAVELER";
+export type DocumentType = "INVOICE" | "CONTRACT" | "TRANSPORT_NOTE" | "UPD";
+export type ShipmentStatus = "PENDING" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+export type ClaimStatus =
+  | "NEW"
+  | "IN_REVIEW"
+  | "RESOLVED"
+  | "REJECTED"
+  | "FORWARDED_TO_SUPPLIER";
+
+/** Бизнес-правило: доставку всегда оплачивает покупатель. */
+export type DeliveryPaidBy = "BUYER";
+
+/** GET/PATCH /api/user/profile — реквизиты продавца для документов. */
+export interface UserProfileDTO extends UserDTO {
+  ogrnip: string | null;
+  address: string | null;
+  bank: string | null;
+  bik: string | null;
+  account: string | null;
+  /** Налоговый режим по умолчанию для новых сделок. */
+  dealTaxMode: DealTaxMode;
+}
+
+export interface UserProfileInput {
+  name?: string;
+  inn?: string | null;
+  ogrnip?: string | null;
+  address?: string | null;
+  bank?: string | null;
+  bik?: string | null;
+  account?: string | null;
+  /** Смена режима по умолчанию (обновляет и taxMode/taxRate пользователя). */
+  dealTaxMode?: DealTaxMode;
+}
+
+/** Транспортная компания из справочника. */
+export interface CarrierDTO {
+  id: string;
+  name: string;
+  city: string;
+  /** Забирает груз со склада поставщика. */
+  pickupAvailable: boolean;
+  /** В радиусе 50 км от Павловской — приоритет в калькуляторе. */
+  isLocal: boolean;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CarrierInput {
+  name: string;
+  city: string;
+  pickupAvailable?: boolean;
+  isLocal?: boolean;
+  notes?: string;
+}
+
+/** Сделка: карточка списка (экономика уже посчитана на сервере). */
+export interface DealDTO {
+  id: string;
+  /** «СД-0001». */
+  number: string;
+  leadId: string | null;
+  positionId: string | null;
+  /** Название позиции (культура + ключевые атрибуты) для списков. */
+  positionName: string | null;
+  buyerName: string;
+  buyerPhone: string;
+  buyerRegion: string;
+  buyerInn: string | null;
+  /** Объём, кг. */
+  volumeKg: number;
+  /** Цена продажи, ₽/кг. */
+  salePrice: number;
+  /** Закуп поставщика (фиксируется на момент сделки), ₽/кг. */
+  supplierPrice: number;
+  taxMode: DealTaxMode;
+  taxAmount: number;
+  margin: number;
+  /** Выручка = salePrice × volumeKg. */
+  revenue: number;
+  deliveryMethod: DeliveryMethod;
+  /** Стоимость доставки (платит покупатель, в маржу не входит). */
+  deliveryCost: number | null;
+  deliveryPaidBy: DeliveryPaidBy;
+  status: DealStatus;
+  paidAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /api/deals/:id — карточка со связями. */
+export interface DealDetailDTO extends DealDTO {
+  shipment: ShipmentDTO | null;
+  documents: DocumentDTO[];
+  claims: ClaimDTO[];
+}
+
+export interface ShipmentDTO {
+  id: string;
+  dealId: string;
+  carrierId: string | null;
+  carrierName: string | null;
+  method: DeliveryMethod;
+  fromCity: string;
+  toCity: string;
+  cost: number;
+  days: number | null;
+  trackingNumber: string | null;
+  status: ShipmentStatus;
+  createdAt: string;
+}
+
+/** fileUrl (base64 data-URL) отдаётся только при генерации/скачивании. */
+export interface DocumentDTO {
+  id: string;
+  dealId: string;
+  type: DocumentType;
+  /** «СЧ-001», «Д-001», «ТН-001», «УПД-001». */
+  number: string;
+  fileUrl?: string;
+  generatedAt: string;
+  createdAt: string;
+}
+
+export interface ClaimDTO {
+  id: string;
+  dealId: string;
+  description: string;
+  /** Фото — когда подключим R2. */
+  photos: string[];
+  status: ClaimStatus;
+  resolution: string | null;
+  forwardedToSupplier: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealCreateInput {
+  leadId?: string;
+  positionId?: string;
+  /** Не указаны — берутся из лида. */
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerRegion?: string;
+  buyerInn?: string | null;
+  /** Объём, кг. */
+  volumeKg: number;
+  /** Цена продажи, ₽/кг. Не указана — возьмём цену позиции. */
+  salePrice?: number;
+  /** Закуп, ₽/кг. Не указан — возьмём закуп позиции на момент сделки. */
+  supplierPrice?: number;
+  taxMode?: DealTaxMode;
+  deliveryMethod?: DeliveryMethod;
+  deliveryCost?: number | null;
+  notes?: string;
+}
+
+export interface DealUpdateInput {
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerRegion?: string;
+  buyerInn?: string | null;
+  volumeKg?: number;
+  salePrice?: number;
+  supplierPrice?: number;
+  taxMode?: DealTaxMode;
+  deliveryMethod?: DeliveryMethod;
+  deliveryCost?: number | null;
+  notes?: string | null;
+  /** Разрешены только переходы статусного графа (shared/deals). */
+  status?: DealStatus;
+}
+
+/** POST /api/deals/:id/ship. */
+export interface DealShipInput {
+  method?: DeliveryMethod;
+  carrierId?: string | null;
+  /** ТК не из справочника — имя вручную. */
+  carrierName?: string | null;
+  fromCity: string;
+  toCity: string;
+  cost: number;
+  days?: number | null;
+  trackingNumber?: string | null;
+}
+
+export interface ClaimCreateInput {
+  dealId: string;
+  description: string;
+}
+
+export interface ClaimUpdateInput {
+  status?: ClaimStatus;
+  resolution?: string;
+  /** true — переадресовать поставщику (ставит и статус). */
+  forwardedToSupplier?: boolean;
+}
+
+/** Вариант калькулятора доставки. */
+export interface DeliveryOptionDTO {
+  carrierId: string | null;
+  carrier: string;
+  cost: number;
+  days: number;
+  isLocal: boolean;
+  pickupAvailable: boolean;
+  note: string;
+}
+
+/** Ответ POST /api/deals/calculate-delivery. */
+export interface DeliveryCalculateDTO {
+  ok: true;
+  fromCity: string;
+  toCity: string;
+  volumeKg: number;
+  options: DeliveryOptionDTO[];
+  /** Индекс рекомендованного варианта в options. */
+  recommendedIndex: number;
+  meta: {
+    /** true — оценки от AI (план логистики), false — детерминированная формула. */
+    ai: boolean;
+    model: string | null;
+    note: string;
+  };
+}

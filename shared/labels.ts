@@ -117,3 +117,73 @@ export const AUDIENCE_TYPE_LABEL: Record<AudienceType, string> = {
   REGIONAL: "локальная барахолка",
   GENERAL: "общая аудитория",
 };
+
+/* ---------- Этап 4: сделки, доставка, документы, рекламации ---------- */
+
+import type {
+  ClaimStatus,
+  DealStatus,
+  DealTaxMode,
+  DeliveryMethod,
+  DocumentType,
+  ShipmentStatus,
+} from "./types";
+
+export const DEAL_STATUS_LABEL: Record<DealStatus, string> = {
+  DRAFT: "черновик",
+  AWAITING_PAYMENT: "ожидает оплаты",
+  PAID: "оплачено",
+  SHIPPED: "отгружено",
+  DELIVERED: "доставлено",
+  CLOSED: "закрыта",
+  CANCELLED: "отменена",
+};
+
+export const DEAL_TAX_MODE_LABEL: Record<DealTaxMode, string> = {
+  IP_6: "ИП, УСН 6% с доходов",
+  SELF_EMPLOYED_4: "самозанятый, НПД 4%",
+  SELF_EMPLOYED_6: "самозанятый, НПД 6%",
+};
+
+/** Короткая ставка для документов: «УСН 6%», «НПД 4%». */
+export const DEAL_TAX_MODE_SHORT: Record<DealTaxMode, string> = {
+  IP_6: "УСН 6%",
+  SELF_EMPLOYED_4: "НПД 4%",
+  SELF_EMPLOYED_6: "НПД 6%",
+};
+
+export const DELIVERY_METHOD_LABEL: Record<DeliveryMethod, string> = {
+  PICKUP: "самовывоз",
+  TK: "транспортная компания",
+  FELLOW_TRAVELER: "попутный транспорт",
+};
+
+export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {
+  PENDING: "ожидает забора",
+  PICKED_UP: "забрано у поставщика",
+  IN_TRANSIT: "в пути",
+  DELIVERED: "доставлено покупателю",
+};
+
+export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
+  INVOICE: "Счёт на оплату",
+  CONTRACT: "Договор купли-продажи",
+  TRANSPORT_NOTE: "Транспортная накладная",
+  UPD: "УПД",
+};
+
+/** Префикс номера документа: СЧ-001, Д-001, ТН-001, УПД-001. */
+export const DOCUMENT_TYPE_PREFIX: Record<DocumentType, string> = {
+  INVOICE: "СЧ",
+  CONTRACT: "Д",
+  TRANSPORT_NOTE: "ТН",
+  UPD: "УПД",
+};
+
+export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
+  NEW: "новая",
+  IN_REVIEW: "на рассмотрении",
+  RESOLVED: "решена",
+  REJECTED: "отклонена",
+  FORWARDED_TO_SUPPLIER: "переадресована поставщику",
+};
