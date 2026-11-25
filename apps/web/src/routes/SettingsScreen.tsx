@@ -1,63 +1,93 @@
 /**
- * ЭТАП 9 — Настройки: автоматизация публикации и профиль.
+ * ЭТАП 9/10 + «СЕКРЕТЫ» — Настройки: автоматизация публикации, фиды,
+ * переменные окружения (Telegram, AI) и реквизиты.
  *
- * «Ещё» → «Настройки»: Авито API (ключи Автозагрузки), фиды площадкам
- * (YML-ссылка для кабинетов Зерно Он-Лайн / Своё Фермерство) и реквизиты
- * (профиль владельца, там же тёмная тема).
+ * «Ещё» → «Настройки»: Авито API и MAX — отдельные экраны (внизу ссылки),
+ * фиды — токен FEED_TOKEN + YML-ссылки, Telegram-бот и AI (OpenRouter) —
+ * секретные поля с проверкой подключения. Значения хранятся на сервере
+ * в шифрованном виде (AES-256-GCM), клиент видит только маски ••••1234.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot, ChevronRight, Copy, Eye, FileCode2, IdCard, Megaphone, Upload } from "lucide-react";
-import type { FeedsInfoDTO } from "@shared/types";
+import {
+  Bot,
+  BrainCircuit,
+  ChevronRight,
+  Copy,
+  Eye,
+  FileCode2,
+  History,
+  IdCard,
+  KeyRound,
+  Megaphone,
+  Send,
+  ShieldAlert,
+  Upload,
+} from "lucide-react";
+import type { FeedsInfoDTO, SecretItemDTO, SecretsStatusDTO } from "@shared/types";
 import * as api from "../api/client";
 import { useToastStore } from "../stores/publish";
 import { copyText } from "../lib/tips";
+import { formatSecretChange } from "../lib/secrets-ui";
 import { Btn, Card, Chip, ScreenHeader, Skeleton } from "../components/ui";
+import { SecretField } from "../components/SecretField";
 
-function FeedsCard() {
+function FeedsCard({ feedTokenItem, onSecretSaved }: { feedTokenItem: SecretItemDTO | null; onSecretSaved: () => void }) {
   const showToast = useToastStore((s) => s.show);
   const [info, setInfo] = useState<FeedsInfoDTO | null>(null);
 
-  useEffect(() => {
+  const loadInfo = useCallback(() => {
     api
       .getFeedsInfo()
       .then(setInfo)
       .catch(() => setInfo(null));
   }, []);
 
+  useEffect(() => {
+    loadInfo();
+  }, [loadInfo]);
+
   const copyFeedUrl = async (url: string) => {
     const ok = await copyText(url);
     showToast(ok ? "Ссылка скопирована — вставьте в кабинет площадки" : "Не удалось скопировать", ok ? "success" : "error");
   };
-
-  if (info === null) {
-    return (
-      <Card className="p-4">
-        <p className="text-[15px] font-semibold text-ink">Фиды площадкам</p>
-        <div className="mt-3 flex flex-col gap-2">
-          <Skeleton className="h-10 w-full rounded-[14px]" />
-          <Skeleton className="h-10 w-full rounded-[14px]" />
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <Card className="mt-3 p-4">
       <div className="flex items-center gap-2">
         <FileCode2 size={16} className="text-accent" />
         <p className="text-[15px] font-semibold text-ink">Фиды площадкам</p>
-        <Chip tone={info.configured ? "green" : "warm"} className="ml-auto">
-          {info.configured ? `${info.offers} поз.` : "токен не задан"}
-        </Chip>
+        {info && (
+          <Chip tone={info.configured ? "green" : "warm"} className="ml-auto">
+            {info.configured ? `${info.offers} поз.` : "токен не задан"}
+          </Chip>
+        )}
       </div>
       <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-soft">
         Площадки (Зерно Он-Лайн, Своё Фермерство) забирают объявления по
         YML-ссылке сами. Вставьте её в личный кабинет площадки один раз —
         дальше объявления обновляются автоматически.
       </p>
-      {info.yml ? (
+
+      {/* Токен фида: задаётся здесь (шифрованно) или через env. */}
+      {feedTokenItem && (
+        <div className="mt-3 border-t border-line pt-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <KeyRound size={13} className="shrink-0 text-accent" />
+            <p className="text-[12px] font-semibold text-soft">Токен доступа (FEED_TOKEN)</p>
+          </div>
+          <SecretField
+            item={feedTokenItem}
+            onSaved={() => {
+              onSecretSaved();
+              loadInfo();
+            }}
+          />
+        </div>
+      )}
+
+      {info?.yml ? (
         <div className="mt-3">
           <div className="flex items-center gap-2">
             <p className="text-[12px] font-semibold text-soft">YML-фид</p>
@@ -73,23 +103,103 @@ function FeedsCard() {
             {info.yml}
           </code>
         </div>
-      ) : (
+      ) : null}
+      {info !== null && !info.yml && (
         <p className="mt-2 text-[11.5px] font-medium leading-relaxed text-warm">
-          FEED_TOKEN не задан — фиды отключены. Сгенерируйте токен
-          (openssl rand -hex 16) и добавьте в env на Render, затем
-          скопируйте ссылку здесь. Подробно — README, «Как подключить YML-фид».
+          Токен не задан — фиды отключены. Задайте его выше (сохраняется
+          зашифрованным в базе) или через env на Render, затем скопируйте
+          ссылку. Подробно — README, «Как подключить YML-фид».
         </p>
       )}
     </Card>
   );
 }
 
+function TelegramCard({ items, onSecretSaved }: { items: SecretItemDTO[]; onSecretSaved: () => void }) {
+  const token = items.find((i) => i.key === "TELEGRAM_BOT_TOKEN") ?? null;
+  const userId = items.find((i) => i.key === "TELEGRAM_USER_ID") ?? null;
+  if (!token || !userId) return null;
+  return (
+    <Card className="mt-3 p-4">
+      <div className="flex items-center gap-2">
+        <Send size={16} className="text-accent" />
+        <p className="text-[15px] font-semibold text-ink">Telegram-бот</p>
+      </div>
+      <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-soft">
+        Токен бота из @BotFather и ваш Telegram ID (у @userinfobot) — бот
+        принимает вопросы покупателей и шлёт вам уведомления о лидах.
+        Сохраняется зашифрованным в базе; новые значения вступают в силу
+        после перезапуска API.
+      </p>
+      <div className="mt-3 flex flex-col gap-4">
+        <SecretField item={token} onSaved={onSecretSaved} />
+        <SecretField item={userId} onSaved={onSecretSaved} />
+      </div>
+    </Card>
+  );
+}
+
+function AiCard({ item, onSecretSaved }: { item: SecretItemDTO | null; onSecretSaved: () => void }) {
+  if (!item) return null;
+  return (
+    <Card className="mt-3 p-4">
+      <div className="flex items-center gap-2">
+        <BrainCircuit size={16} className="text-accent" />
+        <p className="text-[15px] font-semibold text-ink">AI (OpenRouter)</p>
+      </div>
+      <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-soft">
+        Ключ openrouter.ai — тексты объявлений, ответы покупателям и
+        подсказки по ценам. Сохраняется зашифрованным в базе; применяется
+        после перезапуска API.
+      </p>
+      <div className="mt-3">
+        <SecretField item={item} onSaved={onSecretSaved} />
+      </div>
+    </Card>
+  );
+}
+
+function ChangesCard({ status }: { status: SecretsStatusDTO }) {
+  if (status.recentChanges.length === 0) return null;
+  return (
+    <Card className="mt-3 p-4">
+      <div className="flex items-center gap-2">
+        <History size={16} className="text-accent" />
+        <p className="text-[15px] font-semibold text-ink">История переменных</p>
+      </div>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {status.recentChanges.slice(0, 5).map((change) => (
+          <p key={change.id} className="text-[11.5px] font-medium leading-relaxed text-soft">
+            {formatSecretChange(change)}
+          </p>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function SettingsScreen() {
   const navigate = useNavigate();
+  const [status, setStatus] = useState<SecretsStatusDTO | null>(null);
+
+  const load = useCallback(() => {
+    api
+      .getSecretsStatus()
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const items = status?.items ?? [];
+  const feedTokenItem = items.find((i) => i.key === "FEED_TOKEN") ?? null;
+  const aiItem = items.find((i) => i.key === "OPENROUTER_API_KEY") ?? null;
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Настройки" caption="Автоматизация, реквизиты, тема" />
+      <ScreenHeader title="Настройки" caption="Автоматизация, переменные, реквизиты" />
       <section className="px-5">
         <Card className="p-4">
           <div className="flex items-center gap-2">
@@ -150,7 +260,27 @@ export function SettingsScreen() {
           </button>
         </Card>
 
-        <FeedsCard />
+        {/* Честное предупреждение: без ключа шифрования сохранение недоступно. */}
+        {status !== null && !status.encryptionEnabled && status.warning && (
+          <div className="mt-3 flex items-start gap-2 rounded-[16px] bg-warm-soft px-3.5 py-3">
+            <ShieldAlert size={15} className="mt-0.5 shrink-0 text-warm" />
+            <p className="text-[11.5px] font-semibold leading-relaxed text-warm">{status.warning}</p>
+          </div>
+        )}
+
+        {status === null ? (
+          <>
+            <Skeleton className="mt-3 h-[180px] w-full rounded-[20px]" />
+            <Skeleton className="mt-3 h-[120px] w-full rounded-[20px]" />
+          </>
+        ) : (
+          <>
+            <FeedsCard feedTokenItem={feedTokenItem} onSecretSaved={load} />
+            <TelegramCard items={items} onSecretSaved={load} />
+            <AiCard item={aiItem} onSecretSaved={load} />
+            <ChangesCard status={status} />
+          </>
+        )}
 
         <button
           type="button"

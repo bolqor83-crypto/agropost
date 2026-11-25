@@ -25,6 +25,26 @@ export function readFeedToken(): string | null {
   return raw;
 }
 
+/**
+ * Действующий токен фида: env ⋁ секрет из AppSetting («Настройки» → «Фиды»).
+ * Проверка подключения и выдача ссылок используют этот резолвер.
+ */
+export async function resolveFeedToken(): Promise<string | null> {
+  const envToken = readFeedToken();
+  if (envToken !== null) return envToken;
+  const { getSecretValue } = await import("../settings/secrets.js");
+  const stored = await getSecretValue("FEED_TOKEN").catch(() => null);
+  if (stored === null || stored.length < 16) return null;
+  return stored;
+}
+
+/** Конфиг с действующим токеном (env ⋁ БД) — для маршрутов и проверок. */
+export async function loadFeedConfigAsync(): Promise<FeedConfig> {
+  const config = loadFeedConfig();
+  if (config.token !== null) return config;
+  return { ...config, token: await resolveFeedToken() };
+}
+
 export function loadFeedConfig(): FeedConfig {
   const shopUrl =
     env("FEED_SHOP_URL") ??

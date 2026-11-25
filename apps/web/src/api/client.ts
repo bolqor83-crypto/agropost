@@ -35,6 +35,9 @@ import type {
   MaxSettingsDTO,
   MaxSettingsInput,
   MaxStatusDTO,
+  SecretsStatusDTO,
+  SecretSaveDTO,
+  SecretTestDTO,
   UserbotStatusDTO,
   CarrierDTO,
   CarrierInput,
@@ -487,6 +490,30 @@ export function publishViaBot(
 /** Адреса фидов для кабинетов площадок (Зерно Он-Лайн, Своё Фермерство). */
 export function getFeedsInfo(): Promise<FeedsInfoDTO> {
   return request<FeedsInfoDTO>("/feeds/info");
+}
+
+/* ЭТАП «СЕКРЕТЫ» — управление переменными окружения из «Настройки».
+   Значения клиенту не отдаются: только маски ••••1234 и флаги. */
+
+/** Список переменных: маски, источники (env/app/none), шифрование, история. */
+export function getSecretsStatus(): Promise<SecretsStatusDTO> {
+  return request<SecretsStatusDTO>("/settings/secrets");
+}
+
+/** Сохранить секрет (value=null — убрать). env платформы → 400. */
+export function saveSecret(key: string, value: string | null): Promise<SecretSaveDTO> {
+  return request<SecretSaveDTO>("/settings/secrets", {
+    method: "PUT",
+    body: JSON.stringify({ key, value }),
+  });
+}
+
+/** «Проверить подключение» — реальный запрос к сервису. */
+export function testSecretConnection(key: string): Promise<SecretTestDTO> {
+  return request<SecretTestDTO>(`/settings/secrets/${encodeURIComponent(key)}/test`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 /** Статус Авито API: настроен ли клиент, id профиля, адрес фида. */

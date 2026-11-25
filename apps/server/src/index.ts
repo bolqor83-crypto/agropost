@@ -1,11 +1,23 @@
 /**
  * Точка входа API АгроПост. Сборка приложения — в app.ts (этап 5.1:
  * авторизация владельца + закрытые приватные маршруты).
+ *
+ * ЭТАП «СЕКРЕТЫ»: до импорта модулей, которые читают env один раз
+ * (AI-gateway, Telegram), инжектируем сохранённые секреты из AppSetting
+ * в process.env — платформенный env (Render) остаётся приоритетнее.
  */
 
-import { buildApp } from "./app.js";
-import { getTelegram, setupWebhookAtStartup } from "./telegram/index.js";
 import "dotenv/config";
+import { injectStoredSecretsIntoEnv } from "./settings/secrets.js";
+
+/* Секреты из «Настройок» → env (секция "secrets": фиды, AI, Telegram).
+   Ошибка БД не роняет API — приложение стартует на одном env. */
+await injectStoredSecretsIntoEnv().catch(() => undefined);
+
+/* Импортируем приложение ПОСЛЕ инжекции: AI-gateway строит провайдеров
+   из env в момент импорта модуля. */
+const { buildApp } = await import("./app.js");
+const { getTelegram, setupWebhookAtStartup } = await import("./telegram/index.js");
 
 const app = await buildApp();
 

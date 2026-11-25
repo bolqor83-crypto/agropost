@@ -322,6 +322,23 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+/* ЭТАП «СЕКРЕТЫ»: журнал изменений переменных окружения — кто, когда,
+   какое поле. detail хранит только маски (••••1234), сырых значений нет. */
+model AuditLog {
+  id        String   @id @default(cuid())
+  /// Кто изменил: "owner" (вход владельца, других пользователей нет).
+  actor     String   @default("owner")
+  /// Действие: "secret.set" | "secret.clear".
+  action    String
+  /// Имя переменной: FEED_TOKEN, MAX_BOT_TOKEN, …
+  field     String
+  /// Маски было → стало (без значений).
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Listing {
   id          String           @id @default(cuid())
   position    SupplierPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)

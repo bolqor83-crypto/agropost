@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "../../prisma.js";
+import { maybeDecrypt } from "../../settings/crypto.js";
 import {
   isAvitoConfigured,
   resolveAvitoConfig,
@@ -21,7 +22,9 @@ export function setAvitoSettingsLoader(loader: (() => Promise<AvitoSettingsRow |
   settingsLoader = loader;
 }
 
-/** Значение секции "avito" из AppSetting (или null, если не заполняли). */
+/** Значение секции "avito" из AppSetting (или null, если не заполняли).
+    Ключи хранятся шифрованными (AES-256-GCM); легаси-plaintext этапа 9
+    читается как есть и перешифруется при следующем сохранении. */
 export async function avitoSettingsFromDb(): Promise<AvitoSettingsRow | null> {
   if (settingsLoader) return settingsLoader();
   const row = await prisma.appSetting.findUnique({ where: { key: "avito" } });
@@ -30,7 +33,8 @@ export async function avitoSettingsFromDb(): Promise<AvitoSettingsRow | null> {
   if (!value || typeof value !== "object") return null;
   const pick = (key: string): string | null => {
     const v = value[key];
-    return typeof v === "string" && v.trim().length > 0 ? v : null;
+    if (typeof v !== "string" || v.trim().length === 0) return null;
+    return maybeDecrypt(v);
   };
   return {
     clientId: pick("clientId"),

@@ -1054,3 +1054,69 @@ export interface ReadinessDTO {
   /** Всего пунктов. */
   total: number;
 }
+
+/* ====================================================================
+ * ЭТАП «СЕКРЕТЫ» — управление переменными окружения из «Настройки».
+ * Значения клиенту не отдаются: только маски (••••1234) и флаги.
+ * ==================================================================== */
+
+/** Сервис, к которому относится переменная (экран настроек). */
+export type SecretGroup = "feeds" | "avito" | "max" | "ai" | "telegram";
+
+/** Откуда действует текущее значение. */
+export type SecretSource = "env" | "app" | "none";
+
+/** Одна переменная в списке GET /api/settings/secrets. */
+export interface SecretItemDTO {
+  /** Имя env-переменной: FEED_TOKEN, MAX_BOT_TOKEN, … */
+  key: string;
+  label: string;
+  group: SecretGroup;
+  /** Значение задано (env или сохранённое в БД). */
+  configured: boolean;
+  source: SecretSource;
+  /** Маска вида ••••1234 (null — не настроено). */
+  mask: string | null;
+  /** Доступна ли «Проверить подключение». */
+  test: "feeds" | "avito" | "max" | "ai" | "telegram" | null;
+  /** true — вступает в силу только после перезапуска API. */
+  restart: boolean;
+}
+
+/** Запись журнала изменений (маски, без значений). */
+export interface SecretChangeDTO {
+  id: string;
+  actor: string;
+  action: string;
+  field: string;
+  detail: string | null;
+  createdAt: string;
+}
+
+/** Ответ GET /api/settings/secrets. */
+export interface SecretsStatusDTO {
+  ok: true;
+  /** Шифрование доступно (SECRETS_ENCRYPTION_KEY задан). */
+  encryptionEnabled: boolean;
+  /** Предупреждение, если ключа нет (экран показывает баннер). */
+  warning: string | null;
+  items: SecretItemDTO[];
+  /** Последние изменения переменных. */
+  recentChanges: SecretChangeDTO[];
+}
+
+/** Ответ PUT /api/settings/secrets. */
+export interface SecretSaveDTO {
+  ok: true;
+  item: SecretItemDTO;
+}
+
+/** Ответ POST /api/settings/secrets/:key/test. */
+export interface SecretTestDTO {
+  ok: true;
+  key: string;
+  /** Прошла ли проверка. */
+  pass: boolean;
+  /** Человекочитаемый результат (без значений секретов). */
+  message: string;
+}

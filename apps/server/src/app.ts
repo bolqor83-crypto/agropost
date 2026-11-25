@@ -44,6 +44,8 @@ import { feedRoutes } from "./feeds/routes.js";
 import { avitoRoutes } from "./publishers/avito/routes.js";
 import { maxRoutes } from "./max/routes.js";
 import { userbotRoutes, userbotEnvConfigured } from "./routes/userbot.js";
+import { settingsRoutes } from "./settings/routes.js";
+import { secretsEncryptionAvailable } from "./settings/crypto.js";
 import { getTelegram } from "./telegram/index.js";
 import { getStorage } from "./storage/factory.js";
 import { readFeedToken } from "./feeds/config.js";
@@ -94,6 +96,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   if (!userbotEnvConfigured()) {
     app.log.warn(
       "TELEGRAM_SESSION/TG_API_ID не заданы — userbot (чтение чужих TG-чатов) не запущен. См. README «Как настроить userbot»",
+    );
+  }
+
+  /* ЭТАП «СЕКРЕТЫ»: без ключа шифрования экран переменных недоступен
+     (честное предупреждение, env-переменные продолжают работать). */
+  if (!secretsEncryptionAvailable()) {
+    app.log.warn(
+      "SECRETS_ENCRYPTION_KEY не задан — управление секретами в UI отключено (сохранение вернёт 503). " +
+        "Сгенерируйте ключ (openssl rand -hex 32) и задайте в env — см. README «Управление секретами»",
     );
   }
 
@@ -179,6 +190,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   /* ЭТАП 10: MAX Bot API + userbot (чтение чужих TG-чатов). */
   await app.register(maxRoutes);
   await app.register(userbotRoutes);
+
+  /* ЭТАП «СЕКРЕТЫ»: управление переменными (шифрованный AppSetting). */
+  await app.register(settingsRoutes);
 
   /* Webhook бота: маршруты зависят от собранного модуля (токен/секрет из env). */
   const telegram = getTelegram();

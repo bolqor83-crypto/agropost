@@ -16,12 +16,13 @@
 import type { FastifyInstance } from "fastify";
 import { ApiError } from "../errors.js";
 import { getFeedService } from "./runtime.js";
-import { feedUrls, loadFeedConfig, readFeedToken } from "./config.js";
+import { feedUrls, loadFeedConfigAsync, resolveFeedToken } from "./config.js";
 import type { FeedsInfoDTO } from "@shared/types";
 
-/** Проверка токена фида: строка запроса против FEED_TOKEN. */
-export function assertFeedToken(query: Record<string, unknown>): void {
-  const expected = readFeedToken();
+/** Проверка токена фида: строка запроса против действующего токена
+    (env ⋁ «Настройки» → «Фиды», шифрованная секция AppSetting). */
+export async function assertFeedToken(query: Record<string, unknown>): Promise<void> {
+  const expected = await resolveFeedToken();
   const provided = query["token"];
   if (expected === null || typeof provided !== "string" || provided !== expected) {
     throw new ApiError(403, "FEED_FORBIDDEN", "Доступ к фиду запрещён");
@@ -32,7 +33,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
   /* YML — Зерно Он-Лайн, Своё Фермерство (стандарт Яндекс.Маркета). */
   app.get("/api/feeds/yml", async (req, reply) => {
     const query = req.query as Record<string, unknown>;
-    assertFeedToken(query);
+    await assertFeedToken(query);
     const snapshot = await getFeedService().snapshot();
     return reply
       .code(200)
@@ -44,7 +45,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
   /* Авито Autoload XML (Ads formatVersion=3). */
   app.get("/api/feeds/avito", async (req, reply) => {
     const query = req.query as Record<string, unknown>;
-    assertFeedToken(query);
+    await assertFeedToken(query);
     const snapshot = await getFeedService().snapshot();
     return reply
       .code(200)
@@ -55,7 +56,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
   /* Инфо для владельца: адреса фидов и число офферов (за сессией). */
   app.get("/api/feeds/info", async (): Promise<FeedsInfoDTO> => {
-    const config = loadFeedConfig();
+    const config = await loadFeedConfigAsync();
     const urls = feedUrls(config);
     const snapshot = await getFeedService().snapshot();
     return {

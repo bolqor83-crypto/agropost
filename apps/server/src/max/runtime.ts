@@ -10,6 +10,7 @@
 
 import { prisma } from "../prisma.js";
 import type { Prisma } from "@prisma/client";
+import { encryptSecret, maybeDecrypt } from "../settings/crypto.js";
 import { createMaxClient } from "./bot.js";
 import {
   isMaxConfigured,
@@ -34,7 +35,9 @@ export function setMaxDepsFactory(factory: (() => Promise<MaxDeps> | null) | nul
   depsFactory = factory;
 }
 
-/** Значение секции "max" из AppSetting (или null, если не заполняли). */
+/** Значение секции "max" из AppSetting (или null, если не заполняли).
+    Токен хранится шифрованным (AES-256-GCM); легаси-plaintext этапа 10
+    читается как есть и перешифруется при следующем сохранении. */
 export async function maxSettingsFromDb(): Promise<MaxSettingsRow | null> {
   if (settingsLoader) return settingsLoader();
   const row = await prisma.appSetting.findUnique({ where: { key: "max" } });
@@ -44,14 +47,21 @@ export async function maxSettingsFromDb(): Promise<MaxSettingsRow | null> {
   const token = value.token;
   const ownerId = value.ownerId;
   return {
-    token: typeof token === "string" && token.trim().length > 0 ? token.trim() : null,
+    token:
+      typeof token === "string" && token.trim().length > 0
+        ? maybeDecrypt(token)
+        : null,
     ownerId: typeof ownerId === "number" && Number.isFinite(ownerId) ? ownerId : null,
   };
 }
 
-/** Сохранить секцию "max" (токен/ID владельца) — из Настроек. */
+/** Сохранить секцию "max" (токен/ID владельца) — из Настроек.
+    Токен пишется ТОЛЬКО в шифрованном виде. */
 export async function saveMaxSettings(data: MaxSettingsRow): Promise<void> {
-  const asJson = JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue;
+  const asJson = JSON.parse(JSON.stringify({
+    ...data,
+    token: data.token ? encryptSecret(data.token) : null,
+  })) as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({
     where: { key: "max" },
     create: { key: "max", value: asJson },

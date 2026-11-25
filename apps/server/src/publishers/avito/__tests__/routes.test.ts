@@ -196,7 +196,8 @@ describe("Авито API: маршруты с ключами (env) и мок-п�
       const statusBody = status.json();
       expect(statusBody.configured).toBe(true);
       expect(statusBody.configuredFrom).toBe("env");
-      expect(statusBody.userId).toBe("42");
+      /* ЭТАП «СЕКРЕТЫ»: значения маскируются (сырых ключей в клиенте нет). */
+      expect(statusBody.userId).toBe("••••");
       expect(statusBody.feedUrl).toContain("/api/feeds/avito?token=");
 
       /* Dry-run: XML + валидация (локальная + мок-валидатор). */
@@ -240,9 +241,11 @@ describe("Авито API: маршруты с ключами (env) и мок-п�
       expect(settings.statusCode).toBe(200);
       const settingsBody = settings.json();
       expect(settingsBody.fromEnv).toBe(true);
-      expect(settingsBody.clientId).toBe("mock-client");
+      /* ЭТАП «СЕКРЕТЫ»: и clientId теперь маска, не сырая строка. */
+      expect(settingsBody.clientId).toBe("••••ient");
       expect(settingsBody.clientSecretSet).toBe(true);
       expect(JSON.stringify(settingsBody)).not.toContain("mock-secret");
+      expect(JSON.stringify(settingsBody)).not.toContain("mock-client");
     } finally {
       await app.close();
     }

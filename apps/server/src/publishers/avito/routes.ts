@@ -26,11 +26,12 @@ import type {
   AvitoStatusDTO,
 } from "@shared/types";
 import { getFeedService } from "../../feeds/runtime.js";
-import { feedUrls, loadFeedConfig } from "../../feeds/config.js";
+import { feedUrls, loadFeedConfigAsync } from "../../feeds/config.js";
 import { isAvitoConfigured } from "./config.js";
 import { avitoSettingsFromDb, configuredFrom, currentAvitoConfig } from "./runtime.js";
 import { createAvitoClient } from "./client.js";
 import { avitoDryRun, avitoPublish } from "./autoload.js";
+import { encryptSecret, maskSecret } from "../../settings/crypto.js";
 
 /** 503, если ключи не заданы — приложение продолжает полуавто-режим. */
 async function requireAvitoConfig() {
@@ -46,48 +47,51 @@ async function requireAvitoConfig() {
 }
 
 /** Клиент для флоу dry-run/publish: общий сервис фидов + адрес фида. */
-function flowDeps(config: Awaited<ReturnType<typeof requireAvitoConfig>>) {
+async function flowDeps(config: Awaited<ReturnType<typeof requireAvitoConfig>>) {
   const service = getFeedService();
-  const urls = feedUrls(loadFeedConfig());
+  const feedConfig = await loadFeedConfigAsync();
+  const urls = feedUrls(feedConfig);
   const client = createAvitoClient({ config });
   return {
     deps: {
       service,
       client,
       contactPhone: config.contactPhone,
-      feedUrl: urls.avito ?? `${loadFeedConfig().publicApiUrl}/api/feeds/avito`,
+      feedUrl: urls.avito ?? `${feedConfig.publicApiUrl}/api/feeds/avito`,
     },
   };
 }
 
 export async function avitoRoutes(app: FastifyInstance): Promise<void> {
-  /* Статус: настроен ли клиент, откуда, id профиля, адрес фида. */
+  /* Статус: настроен ли клиент, откуда, id профиля, адрес фида.
+     Значения маскированы — сырых ключей в клиенте нет. */
   app.get("/api/avito/status", async (): Promise<AvitoStatusDTO> => {
     const config = await currentAvitoConfig();
-    const urls = feedUrls(loadFeedConfig());
+    const urls = feedUrls(await loadFeedConfigAsync());
     return {
       ok: true,
       configured: isAvitoConfigured(config),
       configuredFrom: configuredFrom(config),
-      userId: config.userId,
-      contactPhone: config.contactPhone,
+      userId: config.userId ? maskSecret(config.userId) : null,
+      contactPhone: config.contactPhone ? maskSecret(config.contactPhone) : null,
       feedUrl: urls.avito,
     };
   });
 
-  /* Настройки (GET — секрет маскирован; env-ключи в UI недоступны). */
+  /* Настройки (GET — только маски ••••1234; env-ключи в UI недоступны). */
   app.get("/api/avito/settings", async (): Promise<AvitoSettingsDTO> => {
     const config = await currentAvitoConfig();
     return {
-      clientId: config.clientId,
+      clientId: config.clientId ? maskSecret(config.clientId) : null,
       clientSecretSet: config.clientSecret !== null,
-      userId: config.userId,
-      contactPhone: config.contactPhone,
+      userId: config.userId ? maskSecret(config.userId) : null,
+      contactPhone: config.contactPhone ? maskSecret(config.contactPhone) : null,
       fromEnv: config.fromEnv,
     };
   });
 
-  /* Сохранение ключей в AppSetting "avito" (env имеет приоритет). */
+  /* Сохранение ключей в AppSetting "avito" (env имеет приоритет).
+     В БД пишется только шифротекст (AES-256-GCM). */
   app.put("/api/avito/settings", async (req): Promise<AvitoSettingsDTO> => {
     const input = parseOrThrow<AvitoSettingsInput>(avitoSettingsSchema, req.body ?? {});
     const existing = await avitoSettingsFromDb();
@@ -100,15 +104,30 @@ export async function avitoRoutes(app: FastifyInstance): Promise<void> {
     };
     await prisma.appSetting.upsert({
       where: { key: "avito" },
-      create: { key: "avito", value: merged },
-      update: { value: merged },
+      create: {
+        key: "avito",
+        value: {
+          clientId: merged.clientId ? encryptSecret(merged.clientId) : null,
+          clientSecret: merged.clientSecret ? encryptSecret(merged.clientSecret) : null,
+          userId: merged.userId ? encryptSecret(merged.userId) : null,
+          phone: merged.phone ? encryptSecret(merged.phone) : null,
+        },
+      },
+      update: {
+        value: {
+          clientId: merged.clientId ? encryptSecret(merged.clientId) : null,
+          clientSecret: merged.clientSecret ? encryptSecret(merged.clientSecret) : null,
+          userId: merged.userId ? encryptSecret(merged.userId) : null,
+          phone: merged.phone ? encryptSecret(merged.phone) : null,
+        },
+      },
     });
     const config = await currentAvitoConfig();
     return {
-      clientId: config.clientId,
+      clientId: config.clientId ? maskSecret(config.clientId) : null,
       clientSecretSet: config.clientSecret !== null,
-      userId: config.userId,
-      contactPhone: config.contactPhone,
+      userId: config.userId ? maskSecret(config.userId) : null,
+      contactPhone: config.contactPhone ? maskSecret(config.contactPhone) : null,
       fromEnv: config.fromEnv,
     };
   });
@@ -134,14 +153,14 @@ export async function avitoRoutes(app: FastifyInstance): Promise<void> {
   /* Dry-run: превью XML + локальная валидация + удалённая (если есть). */
   app.post("/api/avito/dry-run", async (): Promise<AvitoDryRunDTO> => {
     const config = await requireAvitoConfig();
-    const { deps } = flowDeps(config);
+    const { deps } = await flowDeps(config);
     return avitoDryRun(deps);
   });
 
   /* Публикация (после подтверждения в UI): upload фида по ссылке. */
   app.post("/api/avito/publish", async (): Promise<AvitoPublishDTO> => {
     const config = await requireAvitoConfig();
-    const { deps } = flowDeps(config);
+    const { deps } = await flowDeps(config);
     return avitoPublish(deps);
   });
 }

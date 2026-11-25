@@ -38,12 +38,7 @@ export function AvitoApiScreen() {
   useEffect(() => {
     api
       .getAvitoSettings()
-      .then((s) => {
-        setSettings(s);
-        setClientId(s.clientId ?? "");
-        setUserId(s.userId ?? "");
-        setPhone(s.contactPhone ?? "");
-      })
+      .then((s) => setSettings(s))
       .catch(() => setSettings(null));
     api
       .getAvitoStatus()
@@ -56,15 +51,20 @@ export function AvitoApiScreen() {
   const save = async () => {
     setSaving(true);
     try {
+      /* ЭТАП «СЕКРЕТЫ»: сервер возвращает маски — поле не тронули,
+         значит не отправляем (иначе затёрли бы сохранённое значение). */
       const updated = await api.saveAvitoSettings({
-        clientId: clientId.trim() || null,
-        clientSecret: clientSecret.trim() || null,
-        userId: userId.trim() || null,
-        contactPhone: phone.trim() || null,
+        ...(clientId.trim() ? { clientId: clientId.trim() } : {}),
+        ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}),
+        ...(userId.trim() ? { userId: userId.trim() } : {}),
+        ...(phone.trim() ? { contactPhone: phone.trim() } : {}),
       });
       setSettings(updated);
+      setClientId("");
       setClientSecret("");
-      showToast("Ключи Авито сохранены", "success");
+      setUserId("");
+      setPhone("");
+      showToast("Ключи Авито сохранены (зашифрованно в базе)", "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Не удалось сохранить ключи");
     } finally {
@@ -150,16 +150,23 @@ export function AvitoApiScreen() {
           )}
         </Card>
 
-        {/* Ключи. */}
+        {/* Ключи (в БД — только шифротекст; поля пустые: заполняйте, чтобы заменить). */}
         <Card className="mt-3 p-4">
           <p className="text-[15px] font-semibold text-ink">Ключи клиента</p>
+          <p className="mt-1 text-[11.5px] font-medium text-soft">
+            Сохранённые значения показываются масками ••••1234 и хранятся
+            в базе зашифрованными. Заполните поле, чтобы заменить значение.
+          </p>
           <div className="mt-3 flex flex-col gap-3.5">
-            <Field label="client_id" hint={settings.clientId ? "задан" : "из кабинета Авито"}>
+            <Field
+              label="client_id"
+              hint={settings.clientId ? `задан (${settings.clientId})` : "из кабинета Авито"}
+            >
               <TextInput
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 disabled={fromEnv}
-                placeholder="1234567890"
+                placeholder={settings.clientId ?? "1234567890"}
                 aria-label="client_id"
               />
             </Field>
@@ -176,22 +183,28 @@ export function AvitoApiScreen() {
                 aria-label="client_secret"
               />
             </Field>
-            <Field label="ID профиля Авито" hint={status?.userId ? "задан" : "число из профиля"}>
+            <Field
+              label="ID профиля Авито"
+              hint={settings.userId ? `задан (${settings.userId})` : "число из профиля"}
+            >
               <TextInput
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 disabled={fromEnv}
                 inputMode="numeric"
-                placeholder="123456789"
+                placeholder={settings.userId ?? "123456789"}
                 aria-label="ID профиля Авито"
               />
             </Field>
-            <Field label="Телефон для объявлений" hint="ContactPhone в XML">
+            <Field
+              label="Телефон для объявлений"
+              hint={settings.contactPhone ? `задан (${settings.contactPhone})` : "ContactPhone в XML"}
+            >
               <TextInput
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={fromEnv}
-                placeholder="+7 900 000-00-00"
+                placeholder={settings.contactPhone ?? "+7 900 000-00-00"}
                 aria-label="Телефон для объявлений"
               />
             </Field>

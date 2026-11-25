@@ -83,6 +83,15 @@ services:
       # о лидах/ошибках; getMe не выдаёт его — узнайте у @userinfobot).
       - key: TELEGRAM_USER_ID
         sync: false
+      # ЭТАП 9: фиды площадок (YML/Авито) — публичный токен доступа.
+      # Можно задать здесь или в UI («Настройки» → «Фиды»); env приоритетнее.
+      - key: FEED_TOKEN
+        sync: false
+      # ЭТАП «СЕКРЕТЫ»: ключ шифрования секретов в AppSetting
+      # (AES-256-GCM). Сгенерируйте: openssl rand -hex 32. Без него
+      # экран «Переменные» показывает предупреждение, env работает.
+      - key: SECRETS_ENCRYPTION_KEY
+        sync: false
 
   # Этап 5.1 — сервис парсера цен (Python). ВЫКЛЮЧЕН по умолчанию:
   # раскомментируйте блок целиком и задайте PARSER_URL для agropost-api
