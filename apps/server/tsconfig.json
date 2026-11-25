@@ -19,5 +19,5 @@
     }
   },
   "include": ["src", "prisma", "prisma.config.ts", "../../shared", "src/documents/packages.d.ts"],
-  "exclude": ["src/max/__tests__", "src/routes/__tests__", "src/ai/__tests__", "src/telegram/__tests__", "src/deals/__tests__", "src/documents/__tests__", "src/analytics/__tests__", "src/auth/__tests__", "src/storage/__tests__", "src/media/__tests__", "src/feeds/__tests__", "src/publishers/avito/__tests__"]
+  "exclude": ["src/max/__tests__", "src/routes/__tests__", "src/ai/__tests__", "src/telegram/__tests__", "src/deals/__tests__", "src/documents/__tests__", "src/analytics/__tests__", "src/auth/__tests__", "src/storage/__tests__", "src/media/__tests__", "src/feeds/__tests__", "src/publishers/avito/__tests__", "src/settings/__tests__"]
 }
