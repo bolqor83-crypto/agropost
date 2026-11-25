@@ -1,13 +1,15 @@
 /**
- * Ещё — карта разделов по этапам дорожной карты.
- * Этап 1 открыл «Поставщиков» и «Позиции и остатки»;
- * этап 2 — «Каналы» и «Аккаунты»; этап 5 — «Аналитику»
- * и чек-лист «Перед запуском». Этап 5.1 — кнопка «Выйти»:
- * уничтожение серверной сессии и очистка состояния устройства.
+ * Ещё — карта разделов приложения.
+ *
+ * АУДИТ 25.11.2026 (1.1.0, этап 10): замки «этап X» сняты — все
+ * разделы реально работают (API отвечает 200), карточки ведут на
+ * живые экраны. Пустые состояния честно ведут себя через EmptyState
+ * с CTA. Футер показывает версию и этап из /api/meta динамически.
  */
 
 import { useEffect, useState } from "react";
 import {
+  BarChart3,
   Bot,
   Check,
   ChevronRight,
@@ -40,23 +42,22 @@ import { Btn, Card, Chip, ScreenHeader, Skeleton } from "../components/ui";
 const SECTIONS: {
   icon: typeof Users;
   name: string;
-  stage: string;
   hint: string;
-  to?: string;
+  to: string;
 }[] = [
-  { icon: TrendingUp, name: "Аналитика", stage: "этап 5", hint: "Маржа, лиды, конверсия, топы — по запросу", to: "/analytics" },
-  { icon: Inbox, name: "Инбокс", stage: "этап 3.2", hint: "Покупатели из Telegram-бота, ответы с AI-черновиком", to: "/inbox" },
-  { icon: Bot, name: "Telegram-бот", stage: "этап 3.2", hint: "Приём вопросов и автопостинг в свои каналы", to: "/telegram" },
-  { icon: Users, name: "Поставщики", stage: "этап 1", hint: "Справочник, режимы отгрузки, заметки", to: "/suppliers" },
-  { icon: Package, name: "Позиции и остатки", stage: "этап 1", hint: "Шаблоны культур, атрибуты, медиа", to: "/positions" },
-  { icon: Megaphone, name: "Каналы", stage: "этап 2", hint: "Каталог с тегами, охватом, подбор", to: "/channels" },
-  { icon: Smartphone, name: "Аккаунты", stage: "этап 2", hint: "Мультиаккаунты и лимиты размещений", to: "/accounts" },
-  { icon: TrendingUp, name: "Цены рынка", stage: "этап 2.5", hint: "Агросервер и Telegram, обезличенно" },
-  { icon: Send, name: "ИИ-генератор и бот", stage: "этап 3", hint: "Тексты под площадку, white-label" },
-  { icon: FileText, name: "Документы и логистика", stage: "этап 4", hint: "Счёт, договор, ТН, УПД, доставка", to: "/deals" },
-  { icon: ShieldCheck, name: "Рекламации", stage: "этап 4", hint: "Претензии покупателя, переадресация", to: "/deals" },
-  { icon: IdCard, name: "Реквизиты и налог", stage: "этап 4", hint: "Продавец в документах, режим по умолчанию", to: "/profile" },
-  { icon: Bot, name: "«Что сделать сейчас?»", stage: "этап 5", hint: "Кнопка на Пульте: лиды, сделки, публикации" },
+  { icon: TrendingUp, name: "Аналитика", hint: "Маржа, лиды, конверсия, топы — по запросу", to: "/analytics" },
+  { icon: Inbox, name: "Инбокс", hint: "Покупатели из Telegram-бота и MAX, ответы с AI-черновиком", to: "/inbox" },
+  { icon: Bot, name: "Telegram-бот", hint: "Приём вопросов и автопостинг в свои каналы", to: "/telegram" },
+  { icon: Users, name: "Поставщики", hint: "Справочник, режимы отгрузки, заметки", to: "/suppliers" },
+  { icon: Package, name: "Позиции и остатки", hint: "Шаблоны культур, атрибуты, медиа", to: "/positions" },
+  { icon: Megaphone, name: "Каналы", hint: "Каталог с тегами, охватом, подбор", to: "/channels" },
+  { icon: Smartphone, name: "Аккаунты", hint: "Мультиаккаунты и лимиты размещений", to: "/accounts" },
+  { icon: BarChart3, name: "Цены рынка", hint: "Диапазон цен конкурентов — в карточке каждой позиции", to: "/positions" },
+  { icon: Send, name: "ИИ-генератор и бот", hint: "Тексты под площадку и ответы покупателям — с AI", to: "/publish" },
+  { icon: FileText, name: "Документы и логистика", hint: "Счёт, договор, ТН, УПД, доставка", to: "/deals" },
+  { icon: ShieldCheck, name: "Рекламации", hint: "Претензии покупателя, переадресация", to: "/deals" },
+  { icon: IdCard, name: "Реквизиты и налог", hint: "Продавец в документах, режим по умолчанию", to: "/profile" },
+  { icon: Bot, name: "«Что сделать сейчас?»", hint: "Кнопка «Что сделать?» на Пульте — план на сегодня", to: "/" },
 ];
 
 /** Чек-лист «Перед запуском»: прогресс, пункты и кнопка «Скопировать инструкцию». */
@@ -229,7 +230,6 @@ function VersionCard({ meta }: { meta: MetaDTO | null }) {
 
 export function MoreScreen() {
   const navigate = useNavigate();
-  const showToast = useToastStore((s) => s.show);
   /* ЭТАП 7: версия и дата обновления — из /api/meta. */
   const [meta, setMeta] = useState<MetaDTO | null>(null);
 
@@ -242,31 +242,25 @@ export function MoreScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Ещё" caption="Разделы открываются по мере этапов" />
+      <ScreenHeader title="Ещё" caption="Все разделы приложения" />
       <section className="px-5">
         <Card className="divide-y divide-line overflow-hidden">
           {SECTIONS.map((s) => {
             const Icon = s.icon;
-            const open = Boolean(s.to);
             return (
               <button
                 key={s.name}
                 type="button"
-                onClick={() => (s.to ? navigate(s.to) : showToast(`«${s.name}» появится на ${s.stage}`))}
+                onClick={() => navigate(s.to)}
                 className="press flex w-full items-center gap-3 px-4 py-3.5 text-left"
               >
-                <div
-                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${
-                    open ? "bg-accent-soft text-accent" : "bg-subtle text-soft"
-                  }`}
-                >
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-semibold text-ink">{s.name}</p>
                   <p className="truncate text-[12px] font-medium text-soft">{s.hint}</p>
                 </div>
-                <Chip tone={open ? "green" : "neutral"}>{open ? "открыт" : s.stage}</Chip>
                 <ChevronRight size={16} className="shrink-0 text-soft" />
               </button>
             );
@@ -321,7 +315,7 @@ export function MoreScreen() {
         <div className="flex items-center justify-center gap-1.5 pb-4 pt-6">
           <Sprout size={13} className="text-soft" />
           <p className="text-[12px] font-medium text-soft">
-            АгроПост · {meta?.version ?? "1.0.0"} · Warm Utility
+            {meta ? `АгроПост · ${meta.version} · этап ${meta.stage}` : "АгроПост"}
           </p>
         </div>
       </section>

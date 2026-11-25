@@ -90,7 +90,13 @@ export class OpenRouterProvider implements AiProvider {
           "Content-Type": "application/json",
           Authorization: `Bearer ${this.apiKey}`,
           "HTTP-Referer": "https://agropost-web.onrender.com",
-          "X-Title": "АгроПост",
+          /* ФИКС (аудит прода 25.11.2026): было "АгроПост" — кириллица
+             в значении заголовка недопустима для fetch (undici требует
+             ByteString), каждый вызов падал «Cannot convert argument to
+             a ByteString … value of 1040» и AI уходил в шаблонный
+             fallback. OpenRouter использует X-Title только для атрибуции
+             на своей странице — ASCII-название вполне подходит. */
+          "X-Title": "AgroPost",
         },
         body: JSON.stringify({
           model,

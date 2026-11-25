@@ -80,6 +80,13 @@ export const prismaAnalyticsDb: AnalyticsDb = {
   },
 
   async topCultures(period, limit, now): Promise<CultureAgg[]> {
+    /* ФИКС (аудит прода 25.11.2026): замкнутый closedSince() давал
+       НЕквалифицированное "status" — в JOIN трёх таблиц (Deal d ⋈
+       SupplierPosition p ⋈ CultureTemplate c) Postgres отвечает 42702
+       «column reference "status" is ambiguous», и /api/analytics/summary
+       падал 500. Уточняем колонки алиасом d. — условие то же, что в
+       closedSince(), но однозначное. Регрессия — sql.integration.test.ts. */
+    const since = periodStartDate(period, now);
     const rows = await prisma.$queryRaw<{ name: string; margin: number; deals: number }[]>(
       Prisma.sql`
         SELECT c."name" AS name,
@@ -88,7 +95,8 @@ export const prismaAnalyticsDb: AnalyticsDb = {
         FROM "Deal" d
         JOIN "SupplierPosition" p ON d."positionId" = p."id"
         JOIN "CultureTemplate" c ON p."cultureId" = c."id"
-        WHERE ${closedSince(period, now)}
+        WHERE d."status" = 'CLOSED'
+          ${since ? Prisma.sql`AND d."closedAt" >= ${since}` : Prisma.sql``}
         GROUP BY c."name"
         ORDER BY margin DESC, deals DESC
         LIMIT ${limit}

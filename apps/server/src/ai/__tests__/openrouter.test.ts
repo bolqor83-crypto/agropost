@@ -143,3 +143,32 @@ test("OpenRouterProvider реализует AiProvider", () => {
   });
   expect(provider.name).toBe("openrouter");
 });
+
+/* ФИКС аудита прода 25.11.2026: кириллица в значении заголовка (было
+   X-Title: "АгроПост") валилась мгновенно «Cannot convert argument to
+   a ByteString» — undici требует Latin-1. Мок ниже прогоняет init через
+   настоящий конструктор Request: он сериализует заголовки так же
+   строго, как реальный fetch, — кириллица упадёт и в тесте. */
+describe("заголовки запроса — валидный ByteString (регрессия кириллицы)", () => {
+  test("все заголовки проходят сериализацию Request (без не-ByteString)", async () => {
+    const seen: string[] = [];
+    const provider = new OpenRouterProvider({
+      apiKey: "test",
+      models: ["m:free"],
+      fetchImpl: async (_input, init) => {
+        /* new Request валидирует заголовки строго как реальный fetch. */
+        const req = new Request("https://openrouter.ai/api/v1/chat/completions", init);
+        seen.push(...[...req.headers.entries()].map(([k]) => k));
+        return okResponse('{"ok":true}');
+      },
+    });
+    const result = await provider.complete({
+      system: "система с кириллицей в ТЕЛЕ — ок",
+      user: "пользователь",
+      model: "m:free",
+      jsonMode: true,
+    });
+    expect(result.content).toBe('{"ok":true}');
+    expect(seen).toContain("x-title");
+  });
+});
