@@ -308,6 +308,22 @@ html.dark { --skeleton-hi: rgba(255, 255, 255, 0.06); }
 .sheet-handle:active { transform: scale(1.1); }
 
 /* ============================================================
+   17. Кнопка «Назад» в заголовке экрана (полиш 26.11.2026)
+       На десктопе — тихий hover: фон темнеет, шеврон чуть
+       подаётся навстречу. На тач — только press-пружина (.press).
+   ============================================================ */
+.back-btn {
+  transition: background-color var(--motion-base) var(--ease-out-smooth);
+}
+.back-chevron {
+  transition: transform var(--motion-base) var(--ease-out-spring);
+}
+@media (hover: hover) {
+  .back-btn:hover { background-color: var(--color-line); }
+  .back-btn:hover .back-chevron { transform: translateX(-1.5px); }
+}
+
+/* ============================================================
    Kill-switch: prefers-reduced-motion: reduce
    ВСЕ новые анимации/переходы выключаются. Интерфейс мгновенный.
    ============================================================ */
@@ -328,7 +344,11 @@ html.dark { --skeleton-hi: rgba(255, 255, 255, 0.06); }
   .nav-fab:active,
   .seg-pill,
   .sheet-handle,
-  .sheet-handle:active {
+  .sheet-handle:active,
+  .back-btn,
+  .back-btn:hover,
+  .back-btn:hover .back-chevron,
+  .back-chevron {
     animation: none !important;
     transition: none !important;
     transform: none !important;

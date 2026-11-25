@@ -81,7 +81,9 @@ function StatCard({
         <p className="truncate text-[11px] font-semibold uppercase tracking-wide">{label}</p>
       </div>
       <p className="value-flash mt-1.5 truncate rounded-[8px] text-[17px] font-bold text-ink">{value}</p>
-      {hint && <p className="truncate text-[11px] font-medium text-soft">{hint}</p>}
+      {/* Полиш 26.11.2026: сноска переносится, а не режется «после первых…»
+          на узких карточках (390px, три в ряд). */}
+      {hint && <p className="text-[11px] font-medium leading-snug text-soft">{hint}</p>}
     </Card>
   );
 }

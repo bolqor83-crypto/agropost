@@ -4,9 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  ChevronLeft,
   HelpCircle,
   Info,
   Pencil,
@@ -30,6 +28,7 @@ import {
   Chip,
   EmptyState,
   InfoRow,
+  ScreenHeader,
   Sheet,
   Skeleton,
 } from "../components/ui";
@@ -57,7 +56,6 @@ type DetailState =
   | null;
 
 export function AccountsScreen() {
-  const navigate = useNavigate();
   const { accounts, loading, error, load } = useChannels();
   const showToast = useToastStore((s) => s.show);
   const [sheet, setSheet] = useState<DetailState>(null);
@@ -82,25 +80,16 @@ export function AccountsScreen() {
 
   return (
     <div className="screen-rise">
-      <header className="flex items-center gap-3 px-5 pt-6 pb-2">
-        <button
-          type="button"
-          aria-label="Назад"
-          onClick={() => navigate("/more")}
-          className="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-subtle text-soft"
-        >
-          <ChevronLeft size={19} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-semibold leading-tight text-ink">Аккаунты</h1>
-          <p className="text-[12px] font-medium text-soft">
-            {accounts.length > 0 ? `${accounts.length} аккаунтов` : "аккаунтов нет"}
-          </p>
-        </div>
-        <Btn onClick={() => setSheet({ mode: "create" })} ariaLabel="Добавить аккаунт">
-          <Plus size={16} />
-        </Btn>
-      </header>
+      <ScreenHeader
+        title="Аккаунты"
+        caption={accounts.length > 0 ? `${accounts.length} аккаунтов` : "аккаунтов нет"}
+        back="/more"
+        action={
+          <Btn onClick={() => setSheet({ mode: "create" })} ariaLabel="Добавить аккаунт">
+            <Plus size={16} />
+          </Btn>
+        }
+      />
 
       <section className="px-5 pt-4 pb-2">
         {error && (

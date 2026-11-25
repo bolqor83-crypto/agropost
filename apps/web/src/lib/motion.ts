@@ -71,7 +71,14 @@ export async function withViewTransition(update: () => void | Promise<void>): Pr
   await doc
     .startViewTransition(async () => {
       await update();
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      /* Полиш 26.11.2026: кадр ждём только в видимой вкладке. В скрытой
+         (свернутая PWA, фоновый таб) requestAnimationFrame не приходит —
+         переход зависал на 4-секундном лимите и прерывался с ошибкой
+         «Transition was aborted… DOM update timed out» в консоли.
+         DOM при этом уже обновлён — просто не ждём кадр. */
+      if (doc.visibilityState === "visible") {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      }
     })
     .finished.catch(() => {
       /* переход отменён (быстрая повторная навигация) — не падаем */

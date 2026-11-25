@@ -85,6 +85,13 @@ function ToastHost() {
 export function AppShell() {
   const location = useLocation();
 
+  /* Полиш 26.11.2026: смена экрана — скролл наверх. Как в нативных
+     приложениях: новый экран всегда открывается с начала, а не на
+     «прошлой» высоте прокрутки. */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen bg-canvas">
       <div className="relative mx-auto min-h-screen w-full max-w-[480px] border-line/70 bg-canvas md:border-x">

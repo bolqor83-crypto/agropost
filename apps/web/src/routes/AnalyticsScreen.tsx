@@ -61,7 +61,13 @@ function SummaryView({ data, period }: { data: AnalyticsSummaryDTO; period: Anal
         <div className="grid grid-cols-2 gap-y-1">
           <SummaryCell label="Выручка" value={<NumberAnimated value={data.revenue} format={fmtRub} />} />
           <SummaryCell label="Маржа" value={<NumberAnimated value={data.margin} format={fmtRub} />} accent />
-          <SummaryCell label="Сделок" value={`${data.dealsTotal} (${data.dealsClosed} закр. · ${data.dealsActive} акт.)`} />
+          {/* Полиш 26.11.2026: составная метрика — на всю ширину, иначе на 390px
+              обрезалась многоточием «0 (0 закр. · 0…» в узкой колонке. */}
+          <SummaryCell
+            wide
+            label="Сделок"
+            value={`${data.dealsTotal} (${data.dealsClosed} закр. · ${data.dealsActive} акт.)`}
+          />
           <SummaryCell label="Средний чек" value={data.averageCheck !== null ? <NumberAnimated value={data.averageCheck} format={fmtRub} /> : "—"} />
         </div>
       </Card>
@@ -131,13 +137,16 @@ function SummaryCell({
   label,
   value,
   accent = false,
+  wide = false,
 }: {
   label: string;
   value: ReactNode;
   accent?: boolean;
+  /** Занять обе колонки — для составных значений («Сделок (… закр. · … акт.)»). */
+  wide?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 pr-2">
+    <div className={`flex items-baseline justify-between gap-3 py-1.5 pr-2 ${wide ? "col-span-2" : ""}`}>
       <span className="shrink-0 text-[12px] font-medium text-soft">{label}</span>
       <span
         className={`truncate text-right text-[13px] font-semibold ${accent ? "text-accent" : "text-ink"}`}
@@ -396,7 +405,7 @@ export function AnalyticsScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Аналитика" caption="Простые факты по запросу — без графиков" />
+      <ScreenHeader title="Аналитика" caption="Простые факты по запросу — без графиков" back="/more" />
 
       <section className="px-5 pb-6">
         <div className="flex flex-col gap-3">

@@ -244,7 +244,7 @@ export function MoreScreen() {
     <div className="screen-rise">
       <ScreenHeader title="Ещё" caption="Все разделы приложения" />
       <section className="px-5">
-        <Card className="divide-y divide-line overflow-hidden">
+        <Card className="divide-y divide-line overflow-hidden stagger-children">
           {SECTIONS.map((s) => {
             const Icon = s.icon;
             return (

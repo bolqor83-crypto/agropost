@@ -100,6 +100,7 @@ export function TelegramBotScreen() {
       <ScreenHeader
         title="Telegram-бот"
         caption="Покупатели спрашивают бота — вы отвечаете из инбокса"
+        back="/more"
       />
 
       <section className="px-5">

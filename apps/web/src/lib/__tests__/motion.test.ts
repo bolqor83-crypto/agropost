@@ -119,4 +119,36 @@ describe("withViewTransition (деградация)", () => {
     expect(started).toBe(0);
     expect(called).toBe(1);
   });
+
+  test("скрытая вкладка (visibilityState = hidden) — кадр не ждём, колбэк не виснет", async () => {
+    /* Регрессия «Transition was aborted … DOM update timed out» в свёрнутой
+       PWA/фоновом табе: rAF там не приходит, и колбэк не должен его ждать. */
+    let called = 0;
+    const realDoc = globalThis.document;
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        readyState: "complete",
+        visibilityState: "hidden",
+        startViewTransition: (cb: () => Promise<void>) => {
+          /* Если колбэк дождётся rAF (которого нет) — тест зависнет
+             по таймауту bun:test. Здесь он обязан разрешиться сам. */
+          return {
+            finished: cb().then(() => undefined),
+          };
+        },
+      },
+    });
+    try {
+      await withViewTransition(() => {
+        called += 1;
+      });
+    } finally {
+      Object.defineProperty(globalThis, "document", {
+        configurable: true,
+        value: realDoc,
+      });
+    }
+    expect(called).toBe(1);
+  });
 });

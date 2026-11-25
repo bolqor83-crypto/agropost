@@ -75,7 +75,7 @@ export function UserbotScreen() {
   if (status === null) {
     return (
       <div className="screen-rise">
-        <ScreenHeader title="Userbot (чтение)" caption="Чтение чужих Telegram-чатов — заказы не пропускаются" />
+        <ScreenHeader title="Userbot (чтение)" caption="Чтение чужих Telegram-чатов — заказы не пропускаются" back="/settings" />
         <section className="px-5">
           <Skeleton className="h-[140px] w-full rounded-[20px]" />
           <Skeleton className="mt-3 h-[220px] w-full rounded-[20px]" />
@@ -88,7 +88,7 @@ export function UserbotScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Userbot (чтение)" caption="Чтение чужих Telegram-чатов — заказы не пропускаются" />
+      <ScreenHeader title="Userbot (чтение)" caption="Чтение чужих Telegram-чатов — заказы не пропускаются" back="/settings" />
       <section className="px-5">
 
         {/* Статус. */}

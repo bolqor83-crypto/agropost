@@ -6,9 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  ChevronLeft,
   Copy,
   ExternalLink,
   History,
@@ -39,6 +37,7 @@ import {
   Chip,
   EmptyState,
   InfoRow,
+  ScreenHeader,
   Segmented,
   Sheet,
   Skeleton,
@@ -151,7 +150,6 @@ function ChannelCard({
 }
 
 export function ChannelsScreen() {
-  const navigate = useNavigate();
   const { channels, loading, error, load } = useChannels();
   const showToast = useToastStore((s) => s.show);
   const [group, setGroup] = useState<TypeGroup>("all");
@@ -212,25 +210,16 @@ export function ChannelsScreen() {
 
   return (
     <div className="screen-rise">
-      <header className="flex items-center gap-3 px-5 pt-6 pb-2">
-        <button
-          type="button"
-          aria-label="Назад"
-          onClick={() => navigate("/more")}
-          className="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-subtle text-soft"
-        >
-          <ChevronLeft size={19} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-semibold leading-tight text-ink">Каналы</h1>
-          <p className="text-[12px] font-medium text-soft">
-            {channels.length > 0 ? `${channels.length} в каталоге` : "каталог пуст"}
-          </p>
-        </div>
-        <Btn onClick={() => setSheet({ mode: "create" })} ariaLabel="Добавить канал">
-          <Plus size={16} />
-        </Btn>
-      </header>
+      <ScreenHeader
+        title="Каналы"
+        caption={channels.length > 0 ? `${channels.length} в каталоге` : "каталог пуст"}
+        back="/more"
+        action={
+          <Btn onClick={() => setSheet({ mode: "create" })} ariaLabel="Добавить канал">
+            <Plus size={16} />
+          </Btn>
+        }
+      />
 
       <div className="flex flex-col gap-3 px-5 pt-3">
         <Segmented<TypeGroup>

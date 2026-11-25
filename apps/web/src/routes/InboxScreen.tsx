@@ -156,7 +156,7 @@ export function InboxScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Инбокс" caption="Покупатели из Telegram-бота и MAX — отвечаетесь здесь" />
+      <ScreenHeader title="Инбокс" caption="Покупатели из Telegram-бота и MAX — отвечаетесь здесь" back="/" />
 
       <div className="px-5">
         <div className="relative">

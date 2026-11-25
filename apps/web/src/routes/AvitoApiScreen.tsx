@@ -88,7 +88,7 @@ export function AvitoApiScreen() {
   if (settings === null) {
     return (
       <div className="screen-rise">
-        <ScreenHeader title="Авито API" caption="Автозагрузка объявлений по официальному API" />
+        <ScreenHeader title="Авито API" caption="Автозагрузка объявлений по официальному API" back="/settings" />
         <section className="px-5">
           <Skeleton className="h-[120px] w-full rounded-[20px]" />
           <Skeleton className="mt-3 h-[260px] w-full rounded-[20px]" />
@@ -99,7 +99,7 @@ export function AvitoApiScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Авито API" caption="Автозагрузка объявлений по официальному API" />
+      <ScreenHeader title="Авито API" caption="Автозагрузка объявлений по официальному API" back="/settings" />
       <section className="px-5">
 
         {/* Статус подключения. */}

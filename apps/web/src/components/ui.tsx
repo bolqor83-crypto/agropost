@@ -9,9 +9,11 @@
  * skeleton-shimmer, focus-ring, error-shake полей.
  */
 
-import { Check, ChevronDown, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "../lib/motion";
+import { resolveBackTarget } from "../lib/navigation";
 
 /* ---------------- Кнопка (pill) ---------------- */
 
@@ -183,11 +185,60 @@ export function SectionTitle({
 
 /* ---------------- Заголовок экрана ---------------- */
 
-export function ScreenHeader({ title, caption }: { title: string; caption?: string }) {
+/**
+ * Заголовок экрана.
+ *
+ * back — путь-запаска для кнопки «Назад»: пришли изнутри приложения —
+ * честный шаг назад по истории; открыли экран напрямую (ссылка,
+ * обновление) — возврат на back. В установленном PWA жеста «назад»
+ * нет вообще, поэтому кнопка нужна на каждом вложенном экране.
+ * action — кнопка действия справа (например, «+»).
+ */
+export function ScreenHeader({
+  title,
+  caption,
+  back,
+  action,
+}: {
+  title: string;
+  caption?: string;
+  /** Путь-запаска; undefined — корневой экран без «Назад». */
+  back?: string;
+  /** Контент справа от заголовка (кнопка «+» и т.п.). */
+  action?: ReactNode;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const hasBack = back !== undefined;
+  const goBack = () => {
+    const target = resolveBackTarget(location.key, back ?? "/more");
+    /* Сужение типа: string — путь-запаска, number — шаг по истории. */
+    if (typeof target === "string") navigate(target);
+    else navigate(target);
+  };
   return (
     <header className="px-5 pt-6 pb-4">
-      <h1 className="text-[24px] font-semibold leading-tight text-ink">{title}</h1>
-      {caption && <p className="mt-1 text-[13px] font-medium text-soft">{caption}</p>}
+      <div className="flex items-center gap-3">
+        {hasBack && (
+          <button
+            type="button"
+            aria-label="Назад"
+            onClick={goBack}
+            className="press back-btn grid h-10 w-10 shrink-0 place-items-center rounded-full bg-subtle text-soft"
+          >
+            <ChevronLeft size={19} className="back-chevron" />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
+          <h1
+            className={`${hasBack ? "text-[22px]" : "text-[24px]"} font-semibold leading-tight text-ink`}
+          >
+            {title}
+          </h1>
+          {caption && <p className="mt-1 text-[13px] font-medium text-soft">{caption}</p>}
+        </div>
+        {action}
+      </div>
     </header>
   );
 }

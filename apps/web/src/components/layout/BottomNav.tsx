@@ -26,7 +26,7 @@ export function BottomNav() {
       aria-label="Основная навигация"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur"
     >
-      <div className="mx-auto grid max-w-[480px] grid-cols-[1fr_auto_1fr_1fr] items-end gap-1 px-3 pt-2 pb-ax(10px,env(safe-area-inset-bottom))]">
+      <div className="mx-auto grid max-w-[480px] grid-cols-[1fr_auto_1fr_1fr] items-end gap-1 px-3 pt-2 pb-[max(10px,env(safe-area-inset-bottom))]">
         {NAV.map((item) => {
           const Icon = item.icon;
 

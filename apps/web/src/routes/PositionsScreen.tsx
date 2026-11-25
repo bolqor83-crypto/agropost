@@ -5,8 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bean, ChevronLeft, ChevronRight, Package, Plus, Search, ShieldCheck, Sprout } from "lucide-react";
+import { Bean, ChevronRight, Package, Plus, Search, ShieldCheck, Sprout } from "lucide-react";
 import { attrSummary, positionName } from "@shared/attributes";
 import { POSITION_STATUS_LABEL } from "@shared/labels";
 import type { CultureType, PositionDTO } from "@shared/types";
@@ -19,6 +18,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ScreenHeader,
   Segmented,
   Skeleton,
 } from "../components/ui";
@@ -80,7 +80,6 @@ function PositionCard({
 }
 
 export function PositionsScreen() {
-  const navigate = useNavigate();
   const refreshCatalog = useCatalog((s) => s.load);
   const showToast = useToastStore((s) => s.show);
 
@@ -133,25 +132,16 @@ export function PositionsScreen() {
 
   return (
     <div className="screen-rise">
-      <header className="flex items-center gap-3 px-5 pt-6 pb-2">
-        <button
-          type="button"
-          aria-label="Назад"
-          onClick={() => navigate("/more")}
-          className="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-subtle text-soft"
-        >
-          <ChevronLeft size={19} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-semibold leading-tight text-ink">Позиции и остатки</h1>
-          <p className="text-[12px] font-medium text-soft">
-            {loading ? "загружаю…" : `${items.length} позиций · остатки правятся вручную`}
-          </p>
-        </div>
-        <Btn onClick={() => setWizardOpen(true)} ariaLabel="Добавить позицию">
-          <Plus size={16} />
-        </Btn>
-      </header>
+      <ScreenHeader
+        title="Позиции и остатки"
+        caption={loading ? "загружаю…" : `${items.length} позиций · остатки правятся вручную`}
+        back="/more"
+        action={
+          <Btn onClick={() => setWizardOpen(true)} ariaLabel="Добавить позицию">
+            <Plus size={16} />
+          </Btn>
+        }
+      />
 
       <div className="flex flex-col gap-3 px-5 pt-3">
         <Segmented<TypeFilter>

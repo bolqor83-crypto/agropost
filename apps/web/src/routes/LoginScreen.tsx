@@ -106,7 +106,7 @@ export function LoginScreen() {
               />
             </Field>
 
-            {error && <p className="px-1 text-[13px] font-semibold text-warm">{error}</p>}
+            {error && <p className="fade-in-soft px-1 text-[13px] font-semibold text-warm">{error}</p>}
 
             <Btn type="submit" full size="lg" disabled={busy || checking} loading={busy}>
               <LogIn size={18} />

@@ -85,7 +85,7 @@ export function MaxApiScreen() {
   if (settings === null) {
     return (
       <div className="screen-rise">
-        <ScreenHeader title="MAX" caption="Бот MAX: вопросы покупателей и автопостинг в свои каналы" />
+        <ScreenHeader title="MAX" caption="Бот MAX: вопросы покупателей и автопостинг в свои каналы" back="/settings" />
         <section className="px-5">
           <Skeleton className="h-[120px] w-full rounded-[20px]" />
           <Skeleton className="mt-3 h-[260px] w-full rounded-[20px]" />
@@ -96,7 +96,7 @@ export function MaxApiScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="MAX" caption="Бот MAX: вопросы покупателей и автопостинг в свои каналы" />
+      <ScreenHeader title="MAX" caption="Бот MAX: вопросы покупателей и автопостинг в свои каналы" back="/settings" />
       <section className="px-5">
 
         {/* Статус подключения. */}

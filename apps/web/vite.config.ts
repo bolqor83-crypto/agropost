@@ -34,6 +34,11 @@ export default defineConfig({
        не-чувствительные эндпоинты и вычищать при logout. */
     VitePWA({
       registerType: "autoUpdate",
+      /* Полиш 26.11.2026: регистрация через виртуальный модуль в main.tsx
+         (registerSW()) — он сам перезагружает страницу при активации нового
+         сервис-воркера. Скрипт-инъекцию отключаем, чтобы не было двойной
+         регистрации. */
+      injectRegister: false,
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
       manifest: {
         name: "АгроПост",

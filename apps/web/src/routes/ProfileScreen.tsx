@@ -93,6 +93,7 @@ export function ProfileScreen() {
       <ScreenHeader
         title="Реквизиты"
         caption="Подпись документов: вы — продавец, поставщик не упоминается"
+        back="/more"
       />
 
       <section className="px-5 pb-6">

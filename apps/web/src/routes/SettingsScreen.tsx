@@ -199,8 +199,9 @@ export function SettingsScreen() {
 
   return (
     <div className="screen-rise">
-      <ScreenHeader title="Настройки" caption="Автоматизация, переменные, реквизиты" />
-      <section className="px-5">
+      <ScreenHeader title="Настройки" caption="Автоматизация, переменные, реквизиты" back="/more" />
+      {/* Полиш 26.11.2026: каскадное появление карточек (stagger). */}
+      <section className="px-5 stagger-children">
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Megaphone size={16} className="text-accent" />
