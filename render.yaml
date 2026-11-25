@@ -10,13 +10,21 @@ services:
     buildCommand: npm install --include=dev && npm run build
     staticPublishPath: ./dist
     routes:
+      # SAME-ORIGIN API (фикс входа 25.11.2026): браузеры блокируют
+      # cross-site cookie (agropost-web ≠ agropost-api), из-за чего
+      # сессия «терялась» и вход выглядел бесконечным. Теперь /api/*
+      # проксируется через домен сайта — cookie первый, вход работает
+      # во всех браузерах (включая Safari/iOS и режимы с блокировкой
+      # сторонних cookie). В Destination подстановку делает сама «*».
+      - type: rewrite
+        source: /api/*
+        destination: https://agropost-api.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html
-    envVars:
-      # Адрес API вшивается в статику на сборке (apps/web/src/api/client.ts)
-      - key: VITE_API_URL
-        value: https://agropost-api.onrender.com/api
+    # VITE_API_URL НЕ задаём: клиент без него использует относительный
+    # /api (same-origin через rewrite выше). Прямой cross-origin адрес
+    # остаётся рабочим резервом для ручной сборки.
 
   - type: web
     name: agropost-api

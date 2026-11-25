@@ -11,7 +11,11 @@
  * - Vite (apps/web): VITE_API_URL при сборке, иначе относительный /api —
  *   его проксирует vite-dev-server на localhost:3001 (см. vite.config.ts);
  * - Next-превью: мок-API на тех же маршрутах (same-origin /api);
- * - статика на Render: VITE_API_URL=https://agropost-api.onrender.com/api.
+ * - статика на Render: относительный /api — тот же origin, что сайт
+ *   (rewrite /api/* → agropost-api в настройках статик-сайта). Прямой
+ *   cross-origin адрес (VITE_API_URL=…api.onrender.com/api) — резерв
+ *   для ручной сборки: cookie при нём cross-site и может блокироваться
+ *   браузером (Safari/iOS, блокировка сторонних cookie) — вход «кружится».
  *
  * Ошибки сервера имеют единый формат { error: { code, message } } —
  * клиент превращает их в ApiError с человеческим сообщением.

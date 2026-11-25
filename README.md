@@ -239,11 +239,16 @@ npm run dev           # http://localhost:5173 — /api проксируется 
 Сборка и предпросмотр продакшен-версии:
 
 ```bash
-VITE_API_URL=https://agropost-api.onrender.com/api npm run build
+npm run build
 npm run preview
 ```
 
-Без `VITE_API_URL` сборка ходит на относительный `/api` (для reverse-proxy).
+По умолчанию сборка ходит на относительный `/api` — так же устроен прод:
+статик-сайт проксирует `/api/*` на API-сервис (rewrite в настройках
+Render-сайта и в `render.yaml`). Same-origin cookie сессии — вход работает
+во всех браузерах (Safari/iOS, блокировка сторонних cookie).
+`VITE_API_URL=…` — резерв для ручной cross-origin сборки; тогда cookie
+станет сторонней и может отбрасываться браузером.
 
 ## Как добавить канал
 
@@ -367,7 +372,8 @@ python3 tools/make_icons.py
    (Render при деплое тоже выполняет `prisma migrate deploy`).
 3. **Render** → New → Blueprint → выберите репозиторий `agropost`.
    Render прочитает `render.yaml` и создаст два сервиса:
-   - `agropost-web` (Static Site — не спит; `VITE_API_URL` уже в yaml);
+   - `agropost-web` (Static Site — не спит; `/api/*` проксируется на API
+     через rewrite-правило — same-origin, без `VITE_API_URL`);
    - `agropost-api` (Web Service, free tier — спит через 15 минут бездействия,
      первый запрос после сна ~30 сек; для MVP терпимо).
    В переменные `agropost-api` вставьте `DATABASE_URL` из Neon.
