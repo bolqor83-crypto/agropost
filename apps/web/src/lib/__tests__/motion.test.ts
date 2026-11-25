@@ -88,4 +88,35 @@ describe("withViewTransition (деградация)", () => {
     });
     expect(done).toBe(1);
   });
+
+  test("документ ещё грузится (readyState ≠ complete) — без анимации, сразу update", async () => {
+    /* Регрессия «Transition was aborted … DOM update timed out»: первый
+       переход после загрузки (редирект с /login) не должен попадать в
+       4-секундный лимит колбэка startViewTransition. */
+    let started = 0;
+    let called = 0;
+    const realDoc = globalThis.document;
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        readyState: "loading",
+        startViewTransition: () => {
+          started += 1;
+          throw new Error("не должен вызываться при незагруженном документе");
+        },
+      },
+    });
+    try {
+      await withViewTransition(() => {
+        called += 1;
+      });
+    } finally {
+      Object.defineProperty(globalThis, "document", {
+        configurable: true,
+        value: realDoc,
+      });
+    }
+    expect(started).toBe(0);
+    expect(called).toBe(1);
+  });
 });

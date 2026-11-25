@@ -49,13 +49,22 @@ type DocWithVT = Document & {
  * — нет API (Safari/Firefox без флага) → мгновенно, без анимации;
  * — prefers-reduced-motion → мгновенно (CSS-псевдоэлементы отключены
  *   и CSS-правилами, здесь — двойная защита);
+ * — документ ещё грузится (readyState ≠ complete) → мгновенно: первый
+ *   переход сразу после загрузки (например, редирект с /login) раньше
+ *   укладывался в 4-секундный лимит колбэка Chrome и ронял в консоль
+ *   «Transition was aborted… DOM update timed out»;
  * — иначе: API само снимет «старый» и «новый» кадр и проиграет
  *   кросс-фейд из globals.css (::view-transition-old/new(root)).
  * Внутри колбэка ждём кадр — React успевает отрисовать новый экран.
  */
 export async function withViewTransition(update: () => void | Promise<void>): Promise<void> {
   const doc = typeof document === "undefined" ? null : (document as DocWithVT);
-  if (!doc || typeof doc.startViewTransition !== "function" || prefersReducedMotion()) {
+  if (
+    !doc ||
+    typeof doc.startViewTransition !== "function" ||
+    prefersReducedMotion() ||
+    doc.readyState !== "complete"
+  ) {
     await update();
     return;
   }
